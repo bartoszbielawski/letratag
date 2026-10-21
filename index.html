@@ -1,0 +1,1170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LetraTag Printer</title>
+<!--
+  Static page that prints text labels on a DYMO LetraTag LT-200B over Web Bluetooth.
+  Needs Chrome or Edge (Safari/Firefox have no Web Bluetooth).
+
+  The printer protocol code is ported from https://github.com/ysfchn/dymo-bluetooth,
+  which carries this license:
+
+  MIT License
+
+  Copyright (c) 2024 ysfchn / Yusuf Cihan
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+-->
+<!-- Optional web fonts; without internet these fall back to system fonts. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo+Black&family=Bebas+Neue&family=Caveat:wght@400;700&family=Fredoka:wght@400;700&family=Inter:wght@400;800&family=Lobster&family=Oswald:wght@400;700&family=Pacifico&family=Permanent+Marker&family=Press+Start+2P&family=Roboto+Condensed:wght@400;700&family=Silkscreen:wght@400;700&family=Space+Mono:wght@400;700&family=VT323&display=block">
+<style>
+  :root {
+    --bg: #f6f6f4; --panel: #fff; --text: #1d1d1b; --muted: #6b6b66;
+    --border: #dcdcd6; --accent: #1f6feb; --accent-text: #fff;
+    --tape: #fff; --ink: #111; --ok: #1a7f37; --err: #cf222e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161616; --panel: #212121; --text: #ececea; --muted: #9a9a94;
+      --border: #383836; --accent: #4c8dff; --accent-text: #fff;
+      --ok: #3fb950; --err: #ff6b6b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  details.sec { margin-top: 16px; border-top: 1px solid var(--border); }
+  details.sec summary {
+    cursor: pointer; list-style: none; padding: 12px 0 2px; user-select: none;
+    font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+  }
+  details.sec summary::-webkit-details-marker { display: none; }
+  details.sec summary::before { content: "▸"; display: inline-block; width: 1.2em; transition: transform .15s; }
+  details.sec[open] summary::before { transform: rotate(90deg); }
+  .sum { text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--accent); }
+  select.mini { padding: 2px 6px; font-size: 12px; }
+  .emoji-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+  .emoji-bar .lbl { font-size: 13px; color: var(--muted); }
+  .recent { display: flex; gap: 4px; flex-wrap: wrap; }
+  button.emo {
+    width: 38px; height: 38px; padding: 0; font-size: 21px; line-height: 1;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  button.emo:hover { border-color: var(--accent); }
+  #emojiPanel { margin-top: 10px; border: 1px solid var(--border); border-radius: 8px; padding: 10px; background: var(--bg); }
+  .tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
+  .tabs button { padding: 4px 10px; font-size: 13px; border-radius: 999px; }
+  .tabs button.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  .emoji-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 4px;
+    max-height: 210px; overflow-y: auto;
+  }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 13px; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px; margin-bottom: 16px;
+  }
+  textarea {
+    width: 100%; min-height: 64px; resize: vertical; padding: 10px;
+    font-family: inherit; font-size: 18px; line-height: 1.3;
+    background: var(--bg); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px;
+  }
+  .tokens { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 8px; font-size: 13px; color: var(--muted); }
+  .chip { padding: 3px 9px; font-size: 12px; border-radius: 999px; font-family: Menlo, monospace; }
+  .grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px; margin-top: 12px;
+  }
+  label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  label.check { flex-direction: row; align-items: center; gap: 8px; color: var(--text); }
+  select, input[type=number], input[type=text] {
+    padding: 6px 8px; font: inherit; color: var(--text); background: var(--bg);
+    border: 1px solid var(--border); border-radius: 6px;
+  }
+  input[type=range] { width: 100%; }
+  .preview-wrap {
+    overflow-x: auto; padding: 18px 12px; border-radius: 8px;
+    background: repeating-linear-gradient(45deg, var(--bg), var(--bg) 6px, var(--border) 6px, var(--border) 7px);
+  }
+  #preview {
+    display: block; image-rendering: pixelated; background: var(--tape);
+    box-shadow: 0 1px 3px rgba(0,0,0,.25); border-radius: 2px;
+  }
+  #rotInner { width: max-content; }
+  .tape.real {
+    display: flex; align-items: center; background: var(--tape);
+    box-shadow: 0 1px 3px rgba(0,0,0,.25); border-radius: 2px;
+  }
+  .tape.real #preview { box-shadow: none; border-radius: 0; }
+  #ruler { position: relative; height: 22px; margin-top: 4px; color: var(--muted); font-size: 10px; }
+  #ruler span { position: absolute; top: 11px; transform: translateX(-50%); }
+  .preview-bar { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+  #calib { margin-top: 12px; }
+  #card {
+    border: 2px dashed var(--accent); border-radius: 12px; margin: 10px 0;
+    display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 13px;
+  }
+  .meta { color: var(--muted); font-size: 12px; margin-top: 8px; }
+  .meta.err { color: var(--err); }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  button {
+    font: inherit; padding: 9px 16px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--panel); color: var(--text);
+  }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  #status { font-size: 13px; color: var(--muted); }
+  #status.ok { color: var(--ok); } #status.err { color: var(--err); }
+  .warn { color: var(--err); font-size: 13px; }
+  .history-row { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; }
+  .history-row .lbl { font-size: 13px; color: var(--muted); padding-top: 5px; white-space: nowrap; }
+  .history { display: flex; gap: 6px; flex-wrap: wrap; }
+  .hchip {
+    display: inline-flex; align-items: stretch; border: 1px solid var(--border);
+    border-radius: 999px; background: var(--panel); overflow: hidden;
+  }
+  .hchip button { border: 0; border-radius: 0; background: none; font-size: 13px; }
+  .hchip .use { padding: 4px 4px 4px 11px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hchip .del { padding: 4px 9px 4px 5px; color: var(--muted); }
+  .hchip:hover { border-color: var(--accent); }
+  .hchip .del:hover { color: var(--err); }
+  footer.panel { color: var(--muted); font-size: 13px; line-height: 1.55; }
+  footer h3 {
+    margin: 0 0 10px; font-size: 12px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .06em;
+  }
+  footer p { margin: 0 0 8px; }
+  footer p:last-child { margin-bottom: 0; }
+  footer a { color: var(--text); }
+  /* Preview and Print stay pinned while scrolling through the settings. */
+  .sticky {
+    position: sticky; top: 0; z-index: 5; background: var(--bg);
+    padding-top: 10px; margin-top: -10px;
+  }
+  .sticky .panel { margin-bottom: 10px; }
+  .sticky.stuck { box-shadow: 0 10px 12px -12px rgba(0,0,0,.45); }
+  .sticky.unpinned { position: static; }
+</style>
+</head>
+<body>
+<main>
+  <h1>LetraTag label printer</h1>
+  <p class="sub">DYMO LetraTag LT-200B over Bluetooth. Works in Chrome or Edge.</p>
+
+  <div class="sticky" id="sticky">
+  <div class="panel">
+    <div class="preview-bar">
+      <label class="check"><input id="real" type="checkbox"> Real size</label>
+      <button id="calibBtn" type="button">Calibrate screen…</button>
+    </div>
+    <div class="preview-wrap" id="wrap">
+      <div id="rot"><div id="rotInner">
+        <div class="tape" id="tape"><canvas id="preview"></canvas></div>
+        <div id="ruler" hidden></div>
+      </div></div>
+    </div>
+    <div class="meta" id="meta"></div>
+    <div id="calib" hidden>
+      <p class="sub" style="margin:0">Hold a bank card (or any ID-1 card) against the screen and drag the slider until the dashed box matches it exactly.</p>
+      <div id="card">85.6 × 54 mm</div>
+      <input id="calibSlider" type="range" min="2" max="9" step="0.01">
+      <div class="row" style="margin-top:8px"><button id="calibDone" type="button" class="primary">Done</button></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="row">
+      <button id="connect">Connect printer</button>
+      <button id="print" class="primary" disabled>Print</button>
+      <span id="status">Not connected</span>
+    </div>
+    <p class="warn" id="nobt" hidden>This browser has no Web Bluetooth. Open the page in Chrome or Edge.</p>
+  </div>
+  </div>
+
+  <div class="panel">
+    <textarea id="text" spellcheck="false">Hello world</textarea>
+    <div class="tokens">
+      Insert:
+      <button type="button" class="chip" data-token="{date}">{date}</button>
+      <button type="button" class="chip" data-token="{date+7}">{date+7}</button>
+      <button type="button" class="chip" data-token="{date+1m}">{date+1m}</button>
+      <button type="button" class="chip" data-token="{time}">{time}</button>
+      <select id="dateFmt" class="mini" title="Date format">
+        <option value="dmy">21.10.2026</option>
+        <option value="dm">21.10</option>
+        <option value="iso">2026-10-21</option>
+        <option value="mdy">10/21/2026</option>
+        <option value="long">21 Oct 2026</option>
+      </select>
+      <span>· days, <b>w</b>eeks, <b>m</b>onths or <b>y</b>ears, e.g. {date+2w}</span>
+    </div>
+    <div class="history-row" id="historyRow" hidden>
+      <span class="lbl">Recent labels</span>
+      <div id="history" class="history"></div>
+    </div>
+
+    <div class="grid">
+      <label>Font
+        <select id="font">
+          <optgroup label="Mac system fonts">
+            <option value="-apple-system, Helvetica, Arial, sans-serif">System (SF)</option>
+            <option value="'Helvetica Neue', Helvetica, sans-serif">Helvetica Neue</option>
+            <option value="'Avenir Next', Avenir, sans-serif">Avenir Next</option>
+            <option value="'Avenir Next Condensed', sans-serif">Avenir Next Condensed</option>
+            <option value="'DIN Alternate', sans-serif">DIN Alternate</option>
+            <option value="'DIN Condensed', sans-serif">DIN Condensed</option>
+            <option value="Futura, sans-serif">Futura</option>
+            <option value="'Gill Sans', sans-serif">Gill Sans</option>
+            <option value="Optima, sans-serif">Optima</option>
+            <option value="Verdana, sans-serif">Verdana</option>
+            <option value="'Arial Rounded MT Bold', sans-serif">Arial Rounded</option>
+            <option value="'Arial Black', sans-serif">Arial Black</option>
+            <option value="Impact, sans-serif">Impact</option>
+            <option value="Georgia, serif">Georgia</option>
+            <option value="Baskerville, serif">Baskerville</option>
+            <option value="Didot, serif">Didot</option>
+            <option value="Palatino, serif">Palatino</option>
+            <option value="Rockwell, serif">Rockwell</option>
+            <option value="'American Typewriter', serif">American Typewriter</option>
+            <option value="Copperplate, serif">Copperplate</option>
+            <option value="Menlo, monospace">Menlo</option>
+            <option value="'Courier New', monospace">Courier New</option>
+            <option value="'Chalkboard SE', cursive">Chalkboard</option>
+            <option value="Chalkduster, cursive">Chalkduster</option>
+            <option value="'Marker Felt', cursive">Marker Felt</option>
+            <option value="Noteworthy, cursive">Noteworthy</option>
+            <option value="'Bradley Hand', cursive">Bradley Hand</option>
+            <option value="'Snell Roundhand', cursive">Snell Roundhand</option>
+            <option value="Phosphate, fantasy">Phosphate</option>
+          </optgroup>
+          <optgroup label="Web fonts (need internet)">
+            <option value="'Bebas Neue', sans-serif">Bebas Neue</option>
+            <option value="Anton, sans-serif">Anton</option>
+            <option value="Oswald, sans-serif">Oswald</option>
+            <option value="'Roboto Condensed', sans-serif">Roboto Condensed</option>
+            <option value="Inter, sans-serif">Inter</option>
+            <option value="'Archivo Black', sans-serif">Archivo Black</option>
+            <option value="Fredoka, sans-serif">Fredoka</option>
+            <option value="'Space Mono', monospace">Space Mono</option>
+            <option value="'Permanent Marker', cursive">Permanent Marker</option>
+            <option value="Caveat, cursive">Caveat</option>
+            <option value="Pacifico, cursive">Pacifico</option>
+            <option value="Lobster, cursive">Lobster</option>
+            <option value="Silkscreen, monospace">Silkscreen (pixel)</option>
+            <option value="VT323, monospace">VT323 (pixel)</option>
+            <option value="'Press Start 2P', monospace">Press Start 2P (pixel)</option>
+          </optgroup>
+        </select>
+      </label>
+      <label>Size <span id="sizeVal"></span>
+        <input id="size" type="range" min="30" max="100" value="100">
+      </label>
+      <label>Width <span id="widthVal"></span>
+        <input id="width" type="range" min="40" max="250" step="5" value="100">
+      </label>
+      <label class="check"><input id="bold" type="checkbox" checked> Bold</label>
+    </div>
+    <div class="emoji-bar">
+      <span class="lbl">Recent</span>
+      <div id="recent" class="recent"></div>
+      <button type="button" id="emojiToggle" class="chip">All ▾</button>
+    </div>
+    <div id="emojiPanel" hidden>
+      <div class="tabs" id="emojiTabs"></div>
+      <div class="emoji-grid" id="emojiGrid"></div>
+    </div>
+    <p class="sub" style="margin:8px 0 0">Emoji print as solid silhouettes. You can also type them directly (Ctrl+Cmd+Space).</p>
+
+    <details class="sec" id="secImage">
+      <summary>Image <span class="sum" id="sumImage"></span></summary>
+      <div class="grid">
+        <div class="row" style="align-self:end">
+          <button type="button" id="imgBtn">Add image file…</button>
+          <button type="button" id="imgRemove" hidden>Remove image</button>
+          <input type="file" id="imgFile" accept="image/*" hidden>
+        </div>
+        <label id="picStyleRow" hidden>Image style
+          <select id="picStyle">
+            <option value="dither">Shades (dithered)</option>
+            <option value="threshold">Black &amp; white</option>
+            <option value="silhouette">Silhouette</option>
+          </select>
+        </label>
+      </div>
+    </details>
+
+    <details class="sec" id="secBarcode">
+    <summary>Barcode <span class="sum" id="sumBarcode"></span></summary>
+    <div class="grid">
+      <label>Barcode (leave empty for none)
+        <input id="bc" type="text" placeholder="e.g. BOX-0042" spellcheck="false">
+      </label>
+      <label>Barcode type
+        <select id="bcType">
+          <option value="code128">Code 128 (any text)</option>
+          <option value="ean13">EAN-13 (12–13 digits)</option>
+        </select>
+      </label>
+      <label>Bar width <span id="bcModVal"></span>
+        <input id="bcMod" type="range" min="2" max="8" value="4">
+      </label>
+    </div>
+    </details>
+
+    <details class="sec" id="secLayout">
+    <summary>Layout <span class="sum" id="sumLayout"></span></summary>
+    <div class="grid">
+      <label>Label length, mm (0 = fit content)
+        <input id="len" type="number" min="0" max="500" step="1" value="0">
+      </label>
+      <label>Align
+        <select id="align">
+          <option value="left">Left</option>
+          <option value="center" selected>Center</option>
+          <option value="right">Right</option>
+        </select>
+      </label>
+      <label>Margins (each side, mm)
+        <input id="pad" type="number" min="0" max="50" step="1" value="0">
+      </label>
+      <label>Top &amp; bottom margin, image/barcode (mm)
+        <input id="vpad" type="number" min="0" max="1.5" step="0.1" value="0.3">
+      </label>
+      <label>Copies
+        <input id="copies" type="number" min="1" max="20" step="1" value="1">
+      </label>
+      <label class="check"><input id="invert" type="checkbox"> White on black</label>
+      <label class="check"><input id="frame" type="checkbox"> Frame</label>
+      <label>Direction
+        <select id="dir">
+          <option value="horizontal">Horizontal</option>
+          <option value="vertical">Vertical (stacked letters)</option>
+        </select>
+      </label>
+      <label class="check"><input id="mirror" type="checkbox"> Mirror (for inside of glass)</label>
+    </div>
+    </details>
+  </div>
+
+  <footer class="panel">
+    <h3>Credits</h3>
+    <p>Printer protocol based on <a href="https://github.com/ysfchn/dymo-bluetooth" target="_blank" rel="noopener">dymo-bluetooth</a>
+      by Yusuf Cihan (ysfchn), MIT License. Thank you for reverse-engineering the LetraTag!</p>
+    <p>Web fonts from <a href="https://fonts.google.com" target="_blank" rel="noopener">Google Fonts</a>, under their open font licenses.</p>
+    <p>Not affiliated with, endorsed or supported by DYMO. DYMO and LetraTag are trademarks of their respective owners.</p>
+  </footer>
+</main>
+
+<script>
+// ---- Protocol (from ysfchn/dymo-bluetooth) ----
+const SERVICE = "be3dd650-2b3d-42f1-99c1-f0f749dd0678";
+const PRINT_REQUEST = "be3dd651-2b3d-42f1-99c1-f0f749dd0678";
+const PRINT_REPLY = "be3dd652-2b3d-42f1-99c1-f0f749dd0678";
+
+const HEIGHT = 30;            // printable dots across the tape
+const BYTES_PER_COL = 4;      // printer takes 32 bits per column
+const MAX_COLS = 8000;
+const CHUNK = 500;
+const MAGIC = [0x12, 0x34];
+const ESC = 0x1b;
+// The printer's dots are twice as dense along the tape as across it,
+// so text is drawn 2x wide (the vendor app does the same).
+const X_STRETCH = 2;
+const DOT_MM = 25.4 / 200;              // 200 dpi across the tape
+const MM_PER_COL = DOT_MM / X_STRETCH;  // estimate along the tape
+const TAPE_MM = 12;
+
+const RESULTS = {
+  0: "Printed", 2: "Print failed", 3: "Printed (battery low)",
+  4: "Cancelled", 6: "Failed: battery low", 7: "Failed: no cassette",
+};
+
+// Pack a column-major bitmap (true = black) into the printer's format.
+function packBitmap(bits, cols) {
+  const out = new Uint8Array(cols * BYTES_PER_COL);
+  for (let x = 0; x < cols; x++) {
+    for (let y = 0; y < HEIGHT; y++) {
+      if (!bits[x * HEIGHT + y]) continue;
+      const i = x * BYTES_PER_COL + (BYTES_PER_COL - 1 - Math.floor((y + 1) / 8));
+      out[i] |= 1 << (7 - ((y + 1) % 8));
+    }
+  }
+  return out;
+}
+
+function le32(n) { return [n & 255, (n >> 8) & 255, (n >> 16) & 255, (n >>> 24) & 255]; }
+
+function buildPrintChunks(image, cols) {
+  const payload = [
+    ESC, 0x73, 154, 2, 0, 0,                       // START + job id
+    ESC, 0x44, 1, 2, ...le32(cols), ...le32(32),   // PRINT_DATA: 1bpp, align 2, w, h
+    ...image,
+    ESC, 0x45,                                     // FORM_FEED
+    ESC, 0x41,                                     // STATUS
+    ESC, 0x51,                                     // END
+  ];
+  const header = [0xff, 0xf0, ...MAGIC, ...le32(payload.length)];
+  header.push(header.reduce((a, b) => a + b, 0) & 0xff);
+  const chunks = [new Uint8Array(header)];
+  for (let i = 0, step = 0; step < payload.length; i++, step += CHUNK) {
+    const part = [i >= 27 ? i + 1 : i, ...payload.slice(step, step + CHUNK)];
+    if (step + CHUNK >= payload.length) part.push(...MAGIC);
+    chunks.push(new Uint8Array(part));
+  }
+  return chunks;
+}
+
+// ---- Barcodes: each encoder returns modules, 1 = bar, 0 = space ----
+const CODE128 = [
+  "212222","222122","222221","121223","121322","131222","122213","122312","132212","221213",
+  "221312","231212","112232","122132","122231","113222","123122","123221","223211","221132",
+  "221231","213212","223112","312131","311222","321122","321221","312212","322112","322211",
+  "212123","212321","232121","111323","131123","131321","112313","132113","132311","211313",
+  "231113","231311","112133","112331","132131","113123","113321","133121","313121","211331",
+  "231131","213113","213311","213131","311123","311321","331121","312113","312311","332111",
+  "314111","221411","431111","111224","111422","121124","121421","141122","141221","112214",
+  "112412","122114","122411","142112","142211","241211","221114","413111","241112","134111",
+  "111242","121142","121241","114212","124112","124211","411212","421112","421211","212141",
+  "214121","412121","111143","111341","131141","114113","114311","411113","411311","113141",
+  "114131","311141","411131","211412","211214","211232","2331112",
+];
+
+function code128(s) {
+  let codes;
+  if (/^(\d\d)+$/.test(s)) {
+    // Even-length digits: code set C packs two digits per symbol.
+    codes = [105];
+    for (let i = 0; i < s.length; i += 2) codes.push(+s.slice(i, i + 2));
+  } else {
+    codes = [104];
+    for (const ch of s) {
+      const c = ch.charCodeAt(0);
+      if (c < 32 || c > 126) throw new Error(`Code 128 can't encode "${ch}"`);
+      codes.push(c - 32);
+    }
+  }
+  codes.push(codes.reduce((sum, v, i) => sum + v * Math.max(i, 1), 0) % 103, 106);
+  const mods = [];
+  for (const code of codes) {
+    [...CODE128[code]].forEach((w, i) => { for (let k = 0; k < +w; k++) mods.push(i % 2 ? 0 : 1); });
+  }
+  return mods;
+}
+
+const EAN_L = ["0001101","0011001","0010011","0111101","0100011","0110001","0101111","0111011","0110111","0001011"];
+const EAN_PARITY = ["LLLLLL","LLGLGG","LLGGLG","LLGGGL","LGLLGG","LGGLLG","LGGGLG","LGLGLL","LGLGGL","LGGLGL"];
+
+function ean13(s) {
+  if (!/^\d{12,13}$/.test(s)) throw new Error("EAN-13 needs 12 or 13 digits");
+  const d = [...s.slice(0, 12)].map(Number);
+  const check = (10 - d.reduce((a, v, i) => a + v * (i % 2 ? 3 : 1), 0) % 10) % 10;
+  if (s.length === 13 && +s[12] !== check) throw new Error(`EAN-13 check digit should be ${check}`);
+  d.push(check);
+  const R = n => [...EAN_L[n]].map(b => b === "1" ? "0" : "1").join("");
+  const G = n => [...R(n)].reverse().join("");
+  let m = "101";
+  for (let i = 1; i <= 6; i++) m += EAN_PARITY[d[0]][i - 1] === "L" ? EAN_L[d[i]] : G(d[i]);
+  m += "01010";
+  for (let i = 7; i <= 12; i++) m += R(d[i]);
+  m += "101";
+  return [...m].map(Number);
+}
+
+const BARCODES = { code128, ean13 };
+
+// ---- Dates: {date}, {date+7}, {date-1w}, {date+3m}, {date+1y}, {time} ----
+const $ = id => document.getElementById(id);
+const p2 = n => String(n).padStart(2, "0");
+const DATE_FMT = {
+  dmy: d => `${p2(d.getDate())}.${p2(d.getMonth() + 1)}.${d.getFullYear()}`,
+  dm: d => `${p2(d.getDate())}.${p2(d.getMonth() + 1)}`,
+  iso: d => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`,
+  mdy: d => `${p2(d.getMonth() + 1)}/${p2(d.getDate())}/${d.getFullYear()}`,
+  long: d => d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }),
+};
+
+function expandDates(s) {
+  return s.replace(/\{(date|time)(?:([+-]\d+)([dwmy]?))?\}/gi, (_, kind, n, unit) => {
+    const d = new Date();
+    if (n) {
+      const k = +n;
+      switch ((unit || "d").toLowerCase()) {
+        case "d": d.setDate(d.getDate() + k); break;
+        case "w": d.setDate(d.getDate() + 7 * k); break;
+        case "m": d.setMonth(d.getMonth() + k); break;
+        case "y": d.setFullYear(d.getFullYear() + k); break;
+      }
+    }
+    return kind.toLowerCase() === "time"
+      ? `${p2(d.getHours())}:${p2(d.getMinutes())}`
+      : DATE_FMT[$("dateFmt").value](d);
+  });
+}
+
+// ---- Picture: an image file, cropped to its ink ----
+let uploaded = null;
+let imageReminder = false; // a restored label had an image that isn't saved
+
+const luminance = (d, o) => 0.299 * d[o] + 0.587 * d[o + 1] + 0.114 * d[o + 2];
+
+// Crop a canvas to the area that has visible, non-white pixels.
+function trimCanvas(c) {
+  const { width: w, height: h } = c;
+  const d = c.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, w, h).data;
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const o = (y * w + x) * 4;
+    if (d[o + 3] < 16 || luminance(d, o) > 245) continue;
+    if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+  }
+  if (x1 < 0) return null;
+  const out = document.createElement("canvas");
+  out.width = x1 - x0 + 1; out.height = y1 - y0 + 1;
+  out.getContext("2d").drawImage(c, x0, y0, out.width, out.height, 0, 0, out.width, out.height);
+  return out;
+}
+
+// Scale a picture to w×h dots and turn it into a 1-bit mask (row-major, 1 = black).
+function pictureMask(src, w, h, style) {
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const ctx = c.getContext("2d", { willReadFrequently: true });
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(src, 0, 0, w, h);
+  const d = ctx.getImageData(0, 0, w, h).data;
+  const lum = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) {
+    const a = d[i * 4 + 3] / 255;
+    lum[i] = luminance(d, i * 4) * a + 255 * (1 - a);   // composite on white
+  }
+  const mask = new Uint8Array(w * h);
+  if (style === "dither") {
+    // Floyd–Steinberg error diffusion.
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = y * w + x, old = lum[i], val = old < 128 ? 0 : 255, err = old - val;
+      mask[i] = val === 0;
+      if (x + 1 < w) lum[i + 1] += err * 7 / 16;
+      if (y + 1 < h) {
+        if (x > 0) lum[i + w - 1] += err * 3 / 16;
+        lum[i + w] += err * 5 / 16;
+        if (x + 1 < w) lum[i + w + 1] += err / 16;
+      }
+    }
+  } else {
+    const cut = style === "silhouette" ? 230 : 128;
+    for (let i = 0; i < w * h; i++) mask[i] = lum[i] < cut;
+  }
+  return mask;
+}
+
+// ---- Rendering ----
+// Screen pixels per real millimetre. Browsers assume 96 dpi, which is rarely
+// true, so the user can calibrate against a bank card (85.6 mm wide).
+const PX_KEY = "letratag.pxPerMm";
+let pxPerMm = 96 / 25.4, calibrated = false;
+try {
+  const saved = parseFloat(localStorage.getItem(PX_KEY));
+  if (saved > 0) { pxPerMm = saved; calibrated = true; }
+} catch {}
+const preview = $("preview");
+let current = null; // { bits, cols }
+
+function fontSpec(px) {
+  return `${$("bold").checked ? "bold " : ""}${px}px ${$("font").value}`;
+}
+
+function render() {
+  const text = expandDates($("text").value);
+  const lines = text.split("\n");
+  const n = Math.max(lines.length, 1);
+  const sizePct = +$("size").value / 100;
+  const widthPct = +$("width").value / 100;
+  const align = $("align").value;
+  $("sizeVal").textContent = Math.round(sizePct * 100) + "%";
+  $("widthVal").textContent = Math.round(widthPct * 100) + "%";
+  const lineH = HEIGHT / n;
+  const notes = [], errors = [];
+
+  const vertical = $("dir").value === "vertical";
+  const REF = 100;
+  const m = document.createElement("canvas").getContext("2d");
+  let xScale = X_STRETCH * widthPct;
+  const hasText = text.trim() !== "";
+  // textUnits: length of the text block along the tape, before xScale.
+  let textUnits, drawText;
+
+  if (!vertical) {
+    // Size by the text's real ink: at 100% the tallest letter top to the lowest
+    // descender exactly fills the printable height (or each line's share of it).
+    m.font = fontSpec(REF);
+    let refAsc = 0, refDesc = 0;
+    for (const l of lines.some(l => l.trim()) ? lines : ["Hg"]) {
+      if (!l.trim()) continue;
+      const t = m.measureText(l);
+      refAsc = Math.max(refAsc, t.actualBoundingBoxAscent);
+      refDesc = Math.max(refDesc, t.actualBoundingBoxDescent);
+    }
+    const refInk = (refAsc + refDesc) || REF * 0.9;
+    const fontPx = Math.max(4, lineH * sizePct * REF / refInk);
+    const ascent = refAsc * fontPx / REF;
+    const ink = refInk * fontPx / REF;
+    const font = fontSpec(fontPx);
+    m.font = font;
+    const textW = Math.max(1, ...lines.map(l => m.measureText(l).width));
+    textUnits = textW;
+    drawText = (ctx, x) => {
+      ctx.font = font;
+      ctx.textBaseline = "alphabetic";
+      ctx.textAlign = align;
+      const ax = align === "left" ? 0 : align === "right" ? textW : textW / 2;
+      ctx.save();
+      ctx.translate(x, 0);
+      ctx.scale(xScale, 1);
+      lines.forEach((l, i) => ctx.fillText(l, ax, lineH * i + (lineH - ink) / 2 + ascent));
+      ctx.restore();
+    };
+  } else {
+    // Vertical: each letter stays upright when the label hangs top to bottom.
+    // Letters are turned 90° and stacked along the tape, the widest one
+    // filling the printable band; line breaks become spaces.
+    const glyphs = [...new Intl.Segmenter(undefined, { granularity: "grapheme" })
+      .segment(text.replace(/\s+/g, " ").trim())].map(s => s.segment);
+    m.font = fontSpec(REF);
+    const met = glyphs.map(g => g.trim() ? m.measureText(g) : null);
+    const inked = met.filter(Boolean);
+    const maxW = Math.max(1, ...inked.map(t => t.actualBoundingBoxLeft + t.actualBoundingBoxRight));
+    const maxH = Math.max(1, ...inked.map(t => t.actualBoundingBoxAscent + t.actualBoundingBoxDescent));
+    const k = HEIGHT * sizePct / Math.max(maxW, maxH * 0.6); // font units -> dots
+    const gap = maxH * k * 0.2;
+    const heights = met.map(t => t ? (t.actualBoundingBoxAscent + t.actualBoundingBoxDescent) * k : maxH * k * 0.5);
+    textUnits = heights.reduce((a, h) => a + h, 0) + gap * Math.max(0, glyphs.length - 1);
+    const vfont = fontSpec(REF * k);
+    drawText = (ctx, x) => {
+      ctx.font = vfont;
+      ctx.textBaseline = "alphabetic";
+      ctx.textAlign = "left";
+      let pos = 0;
+      glyphs.forEach((g, i) => {
+        const t = met[i];
+        if (t) {
+          // Letter's "down" runs along the tape, its "right" towards the top edge.
+          ctx.save();
+          ctx.translate(x + pos * xScale, HEIGHT / 2);
+          ctx.scale(xScale, 1);
+          ctx.rotate(-Math.PI / 2);
+          ctx.fillText(g, (t.actualBoundingBoxLeft - t.actualBoundingBoxRight) * k / 2, t.actualBoundingBoxAscent * k);
+          ctx.restore();
+        }
+        pos += heights[i] + gap;
+      });
+    };
+  }
+  let textCols = hasText ? Math.ceil(textUnits * xScale) : 0;
+  const padCols = Math.round((+$("pad").value || 0) / MM_PER_COL);
+
+  // Barcode, with the scanner-required quiet zone around it.
+  let bars = null;
+  const bcData = expandDates($("bc").value).trim();
+  if (bcData) {
+    try { bars = BARCODES[$("bcType").value](bcData); } catch (e) { errors.push(`Barcode: ${e.message}`); }
+  }
+  // Blank dots above and below images and barcodes (text uses Size instead).
+  const vMm = Math.max(0, +$("vpad").value || 0);
+  const vDots = Math.min(Math.round(vMm / DOT_MM), (HEIGHT - 6) / 2);
+  const mod = +$("bcMod").value;
+  $("bcModVal").textContent = `${(mod * MM_PER_COL).toFixed(2)} mm`;
+  const quiet = 10 * mod;
+  const barCols = bars ? bars.length * mod : 0;
+
+  // Image file, as tall as the Size setting allows.
+  const pic = uploaded, style = $("picStyle").value;
+  $("imgRemove").hidden = $("picStyleRow").hidden = !pic;
+  const picH = pic ? Math.max(4, Math.min(Math.round(HEIGHT * sizePct), HEIGHT - 2 * vDots)) : 0;
+  const picCols = pic ? Math.max(1, Math.round(pic.width / pic.height * picH * X_STRETCH)) : 0;
+
+  // Left to right: barcode, picture, text.
+  const gapAfterBars = bars && (pic || hasText) ? quiet : 0;
+  const gapAfterPic = pic && hasText ? Math.round(1.5 / MM_PER_COL) : 0;
+  const leftM = bars ? Math.max(padCols, quiet) : padCols;
+  const rightM = bars && !pic && !hasText ? Math.max(padCols, quiet) : padCols;
+  let content = barCols + gapAfterBars + picCols + gapAfterPic + textCols;
+  let cols = leftM + content + rightM, offset = 0;
+
+  // Fixed length: squeeze the text if needed, then place content by alignment.
+  const lenMm = +$("len").value || 0;
+  if (lenMm > 0) {
+    const want = Math.round(lenMm / MM_PER_COL);
+    const inner = want - leftM - rightM;
+    if (content > inner && textCols > 0) {
+      const others = content - textCols;
+      const target = Math.max(Math.ceil(textCols * 0.4), inner - others);
+      xScale *= target / textCols;
+      textCols = Math.ceil(textUnits * xScale);
+      content = others + textCols;
+      notes.push(`text narrowed to ${Math.round(xScale / X_STRETCH * 100)}% to fit`);
+    }
+    if (content > inner) {
+      errors.push(`doesn't fit in ${lenMm} mm, needs about ${Math.ceil((leftM + content + rightM) * MM_PER_COL)} mm`);
+      cols = leftM + content + rightM;
+    } else {
+      cols = want;
+      const slack = inner - content;
+      offset = align === "left" ? 0 : align === "right" ? slack : Math.floor(slack / 2);
+    }
+  }
+  cols = Math.min(MAX_COLS, Math.max(1, cols));
+
+  const c = document.createElement("canvas");
+  c.width = cols; c.height = HEIGHT;
+  // Drawn on a transparent canvas: a dot is printed where anything covers it.
+  // That turns colour emoji into solid silhouettes and keeps text unchanged.
+  const ctx = c.getContext("2d", { willReadFrequently: true });
+  ctx.fillStyle = "#000";
+  let x = leftM + offset;
+  if (bars) {
+    bars.forEach((b, i) => { if (b) ctx.fillRect(x + i * mod, vDots, mod, HEIGHT - 2 * vDots); });
+    x += barCols + gapAfterBars;
+  }
+  const picX = x, picY = Math.floor((HEIGHT - picH) / 2);
+  if (pic) x += picCols + gapAfterPic;
+  if (hasText) drawText(ctx, x);
+
+  // 1-bit image (row-major): canvas by coverage, then the picture on top.
+  const px = ctx.getImageData(0, 0, cols, HEIGHT).data;
+  const black = new Uint8Array(cols * HEIGHT);
+  for (let i = 0; i < cols * HEIGHT; i++) black[i] = px[i * 4 + 3] >= 128;
+  if (pic) {
+    const mask = pictureMask(pic, picCols, picH, style);
+    for (let y = 0; y < picH; y++) for (let px2 = 0; px2 < picCols; px2++) {
+      const tx = picX + px2;
+      if (tx < cols && mask[y * picCols + px2]) black[(picY + y) * cols + tx] = 1;
+    }
+  }
+
+  // Mirror flips the label end to end, so it reads correctly through glass.
+  const invert = $("invert").checked, frame = $("frame").checked, mirror = $("mirror").checked;
+  const bits = new Uint8Array(cols * HEIGHT);
+  for (let x2 = 0; x2 < cols; x2++) {
+    for (let y = 0; y < HEIGHT; y++) {
+      const sx = mirror ? cols - 1 - x2 : x2;
+      let b = !!black[y * cols + sx];
+      if (invert) b = !b;
+      if (frame && (y === 0 || y === HEIGHT - 1 || x2 === 0 || x2 === cols - 1)) b = !invert;
+      bits[x2 * HEIGHT + y] = b;
+    }
+  }
+  current = { bits, cols };
+
+  preview.width = cols; preview.height = HEIGHT;
+  const tape = $("tape"), ruler = $("ruler");
+  if ($("real").checked) {
+    // Physical size: the printed band sits in the middle of the 12 mm tape.
+    const lenMmNow = cols * MM_PER_COL;
+    const w = lenMmNow * pxPerMm;
+    tape.className = "tape real";
+    tape.style.width = w + "px";
+    tape.style.height = TAPE_MM * pxPerMm + "px";
+    preview.style.width = w + "px";
+    preview.style.height = HEIGHT * DOT_MM * pxPerMm + "px";
+    preview.style.imageRendering = "pixelated";
+    ruler.hidden = false;
+    ruler.style.width = w + "px";
+    // Tick marks: a 1px line at the start of every 10 mm and every 1 mm tile.
+    const tick = "linear-gradient(to right, currentColor 1px, transparent 1px)";
+    ruler.style.background =
+      `${tick} 0 0 / ${pxPerMm * 10}px 10px repeat-x, ${tick} 0 0 / ${pxPerMm}px 5px repeat-x`;
+    ruler.innerHTML = "";
+    for (let cm = 1; cm * 10 <= lenMmNow; cm++) {
+      const s = document.createElement("span");
+      s.style.left = cm * 10 * pxPerMm + "px";
+      s.textContent = cm;
+      ruler.appendChild(s);
+    }
+  } else {
+    // Fit to the panel, at true aspect ratio: squash columns back by X_STRETCH.
+    // Long labels shrink below 1 pixel per dot so the whole label stays visible.
+    // Vertical labels are shown standing up, so they fit a height instead.
+    const room = vertical ? 240 : $("wrap").clientWidth - 24;
+    const zoom = Math.min(4, room / (cols / X_STRETCH));
+    tape.className = "tape";
+    tape.style.width = tape.style.height = "";
+    preview.style.width = (cols / X_STRETCH * zoom) + "px";
+    preview.style.height = (HEIGHT * zoom) + "px";
+    preview.style.imageRendering = zoom < 1 ? "auto" : "pixelated";
+    ruler.hidden = true;
+  }
+  const pctx = preview.getContext("2d");
+  const img = pctx.createImageData(cols, HEIGHT);
+  for (let x2 = 0; x2 < cols; x2++) for (let y = 0; y < HEIGHT; y++) {
+    const v = bits[x2 * HEIGHT + y] ? 17 : 255, o = (y * cols + x2) * 4;
+    img.data[o] = img.data[o + 1] = img.data[o + 2] = v; img.data[o + 3] = 255;
+  }
+  pctx.putImageData(img, 0, 0);
+
+  // Vertical: turn the whole tape (and ruler) 90° clockwise, start at the top.
+  const rot = $("rot"), rotInner = $("rotInner");
+  if (vertical) {
+    const w = rotInner.offsetWidth, h = rotInner.offsetHeight;
+    rot.style.width = h + "px";
+    rot.style.height = w + "px";
+    rot.style.margin = "0 auto";
+    rotInner.style.transformOrigin = "0 0";
+    rotInner.style.transform = `translate(${h}px, 0) rotate(90deg)`;
+  } else {
+    rot.style.width = rot.style.height = rot.style.margin = "";
+    rotInner.style.transform = "";
+  }
+
+  // Folded section headers show what is active inside them.
+  $("sumImage").textContent = pic ? "· image added" : "";
+  $("sumBarcode").textContent = bars ? `· ${bcData}` : bcData ? "· invalid" : "";
+  const layout = [];
+  if (lenMm > 0) layout.push(`${lenMm} mm`);
+  if (align !== "center") layout.push(`${align} aligned`);
+  if (+$("pad").value > 0) layout.push(`margins ${+$("pad").value} mm`);
+  if (vMm !== 0.3) layout.push(`top/bottom ${vMm} mm`);
+  if (+$("copies").value > 1) layout.push(`${+$("copies").value} copies`);
+  if (invert) layout.push("white on black");
+  if (frame) layout.push("frame");
+  if (vertical) layout.push("vertical");
+  if (mirror) layout.push("mirrored");
+  $("sumLayout").textContent = layout.length ? "· " + layout.join(", ") : "";
+
+  if (imageReminder && !uploaded) notes.push("this label had an image, add it again under Image");
+  if ($("real").checked && !calibrated) notes.push("screen not calibrated, sizes are approximate");
+  if (cols >= MAX_COLS) errors.push("too long, cut off");
+  $("meta").textContent = [`${cols} dots · about ${(cols * MM_PER_COL).toFixed(0)} mm`, ...notes, ...errors].join(" · ");
+  $("meta").className = errors.length ? "meta err" : "meta";
+}
+
+function sizeCard() {
+  $("card").style.width = 85.6 * pxPerMm + "px";
+  $("card").style.height = 53.98 * pxPerMm + "px";
+}
+// Pinned preview: a shadow once it floats over the settings.
+window.addEventListener("scroll", () => {
+  $("sticky").classList.toggle("stuck", window.scrollY > 0 && $("sticky").getBoundingClientRect().top <= 0);
+}, { passive: true });
+
+$("calibBtn").addEventListener("click", () => {
+  $("sticky").classList.add("unpinned"); // the card is too tall to stay pinned
+  $("calib").hidden = false;
+  $("calibSlider").value = pxPerMm;
+  sizeCard();
+});
+$("calibSlider").addEventListener("input", e => { pxPerMm = +e.target.value; sizeCard(); render(); });
+$("calibDone").addEventListener("click", () => {
+  $("calib").hidden = true;
+  $("sticky").classList.remove("unpinned");
+  calibrated = true;
+  try { localStorage.setItem(PX_KEY, pxPerMm); } catch {}
+  $("real").checked = true;
+  render();
+});
+
+function insertAtCursor(tok) {
+  const t = $("text");
+  const s = t.selectionStart ?? t.value.length, e = t.selectionEnd ?? s;
+  t.value = t.value.slice(0, s) + tok + t.value.slice(e);
+  t.focus();
+  t.selectionStart = t.selectionEnd = s + tok.length;
+  render();
+}
+
+// Date tokens go into the text at the cursor.
+document.querySelectorAll(".chip[data-token]").forEach(b =>
+  b.addEventListener("click", () => insertAtCursor(b.dataset.token)));
+
+// ---- Symbol & emoji picker: recent row plus a tabbed grid ----
+const EMOJI = {
+  Symbols: "★ ☆ ♥ ✓ ✗ ⚠ ⚡ ☀ ❄ ☂ ☕ ♻ ✂ ⚙ ☎ ✉ ⌂ ♫ ☢ ☣ ⚑ ⚓ ✈ ♿ ➜ ← → ↑ ↓ ● ○ ■ □ ▲ ◆ ✿ ☘ ♠ ♣ ♦ ∞ ° € ✚ ✱",
+  Food: "🍎 🍐 🍊 🍋 🍌 🍉 🍇 🍓 🍒 🥕 🌽 🌶️ 🥔 🧅 🧄 🍄 🥜 🍞 🧀 🥚 🥛 🍯 🧂 🍪 🍰 🍫 🍬 🍝 🍚 🥫 ☕ 🍵 🍷 🍺 🧊",
+  Home: "🏠 🛏️ 🛁 🚿 🧻 🧼 🧽 🧺 🧹 👕 👖 🧦 👟 🧤 🧣 🎒 🧸 🎁 📦 🗑️ 🪴 🕯️ 💡 🔑",
+  Tools: "🔧 🔨 🪛 🪚 🔩 ⚙️ 🧰 📏 ✂️ 📎 🖊️ ✏️ 🔋 🔌 💻 🖥️ 🖨️ ⌨️ 🖱️ 📱 🎧 📷 💾 🔦",
+  Office: "📚 📖 📒 📁 📂 📅 📌 🏷️ ✉️ 📮 🗂️ 🗃️ 📝 📊 🧾",
+  Health: "💊 💉 🩹 🌡️ 🧴 🪥 🩺 ❤️",
+  Nature: "🌲 🌳 🌵 🌸 🌻 🍀 🍁 ☀️ 🌙 ⭐ ⛅ 🌧️ ❄️ 🔥 💧 🌊",
+  Animals: "🐱 🐶 🐭 🐰 🦊 🐻 🐼 🐨 🐯 🦁 🐮 🐷 🐸 🐵 🐔 🐧 🐦 🦆 🦉 🐟 🐠 🐢 🐍 🦋 🐝 🐞",
+  Fun: "🚗 🚲 🚀 ⚽ 🏀 🎾 🎮 🎲 🎵 🎸 🎨 🧩",
+};
+// U+FE0E asks for the plain (non-colour) form of symbols like ⚡ or ☕.
+const pickValue = (tab, ch) => tab === "Symbols" ? ch + "︎" : ch;
+
+const RECENT_KEY = "letratag.recentSymbols", TAB_KEY = "letratag.emojiTab";
+const RECENT_MAX = 12;
+let recent = ["★︎", "✓︎", "⚠︎", "❄︎", "🔥", "🍎", "📦", "💡"];
+try { const r = JSON.parse(localStorage.getItem(RECENT_KEY)); if (Array.isArray(r) && r.length) recent = r; } catch {}
+
+function emoButton(value) {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "emo"; b.textContent = value;
+  b.addEventListener("mousedown", e => e.preventDefault()); // keep the text cursor where it is
+  b.addEventListener("click", () => useSymbol(value));
+  return b;
+}
+
+function useSymbol(value) {
+  insertAtCursor(value);
+  recent = [value, ...recent.filter(v => v !== value)].slice(0, RECENT_MAX);
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify(recent)); } catch {}
+  renderRecent();
+}
+
+function renderRecent() { $("recent").replaceChildren(...recent.map(emoButton)); }
+
+function showTab(tab) {
+  [...$("emojiTabs").children].forEach(b => b.classList.toggle("on", b.textContent === tab));
+  $("emojiGrid").replaceChildren(...EMOJI[tab].split(" ").map(ch => emoButton(pickValue(tab, ch))));
+  try { localStorage.setItem(TAB_KEY, tab); } catch {}
+}
+
+for (const tab of Object.keys(EMOJI)) {
+  const b = document.createElement("button");
+  b.type = "button"; b.textContent = tab;
+  b.addEventListener("click", () => showTab(tab));
+  $("emojiTabs").appendChild(b);
+}
+let startTab = "Symbols";
+try { if (EMOJI[localStorage.getItem(TAB_KEY)]) startTab = localStorage.getItem(TAB_KEY); } catch {}
+showTab(startTab);
+renderRecent();
+$("emojiToggle").addEventListener("click", () => {
+  $("emojiPanel").hidden = !$("emojiPanel").hidden;
+  $("emojiToggle").textContent = $("emojiPanel").hidden ? "All ▾" : "All ▴";
+});
+
+// Image files stay in the browser; nothing is uploaded anywhere.
+$("imgBtn").addEventListener("click", () => $("imgFile").click());
+$("imgRemove").addEventListener("click", () => { uploaded = null; $("imgFile").value = ""; render(); });
+$("imgFile").addEventListener("change", async () => {
+  const file = $("imgFile").files[0];
+  if (!file) return;
+  try {
+    const bmp = await createImageBitmap(file);
+    const k = Math.min(1, 1200 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(bmp.width * k)); c.height = Math.max(1, Math.round(bmp.height * k));
+    c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+    uploaded = trimCanvas(c) || c;
+  } catch {
+    uploaded = null;
+    $("meta").textContent = "Couldn't read that image";
+  }
+  render();
+});
+
+["real", "text", "font", "size", "width", "dateFmt", "picStyle", "bc", "bcType", "bcMod",
+ "len", "align", "pad", "vpad", "copies", "bold", "invert", "frame", "mirror", "dir"].forEach(id =>
+  $(id).addEventListener("input", render));
+
+// Remember which folded sections were left open.
+const OPEN_KEY = "letratag.openSections";
+try {
+  for (const id of JSON.parse(localStorage.getItem(OPEN_KEY) || "[]")) if ($(id)) $(id).open = true;
+} catch {}
+document.querySelectorAll("details.sec").forEach(d => d.addEventListener("toggle", () => {
+  const open = [...document.querySelectorAll("details.sec[open]")].map(x => x.id);
+  try { localStorage.setItem(OPEN_KEY, JSON.stringify(open)); } catch {}
+}));
+window.addEventListener("resize", render);
+
+// Web fonts load lazily; redraw once the chosen one is ready.
+async function loadFont() {
+  try { await document.fonts.load(fontSpec(30), $("text").value || "Hg"); } catch {}
+  render();
+}
+$("font").addEventListener("change", loadFont);
+$("bold").addEventListener("change", loadFont);
+document.fonts.ready.then(render);
+render();
+
+// ---- Bluetooth ----
+let device = null, reqChar = null, replyChar = null;
+
+function setStatus(msg, kind = "") {
+  $("status").textContent = msg;
+  $("status").className = kind;
+}
+
+async function ensureConnected() {
+  if (!device) throw new Error("No printer selected");
+  if (!device.gatt.connected || !reqChar) {
+    setStatus("Connecting…");
+    const server = await device.gatt.connect();
+    const svc = await server.getPrimaryService(SERVICE);
+    reqChar = await svc.getCharacteristic(PRINT_REQUEST);
+    replyChar = await svc.getCharacteristic(PRINT_REPLY);
+    await replyChar.startNotifications();
+  }
+}
+
+async function printOnce() {
+  await ensureConnected();
+  const chunks = buildPrintChunks(packBitmap(current.bits, current.cols), current.cols);
+
+  // The printer replies twice: "printing" (0/1), then the final result.
+  const reply = replyChar;
+  let cleanup;
+  const result = new Promise((resolve, reject) => {
+    let sawFirst = false;
+    const timer = setTimeout(() => { cleanup(); reject(new Error("No reply from printer")); }, 60000);
+    function onReply(e) {
+      const d = new Uint8Array(e.target.value.buffer);
+      if (d[0] !== ESC || d[1] !== 0x52) return;
+      const code = d[2] === 1 ? 0 : d[2] === 5 ? 2 : d[2];
+      if (!sawFirst && (d[2] === 0 || d[2] === 1)) { sawFirst = true; return; }
+      cleanup(); resolve(code);
+    }
+    cleanup = () => { clearTimeout(timer); reply.removeEventListener("characteristicvaluechanged", onReply); };
+    reply.addEventListener("characteristicvaluechanged", onReply);
+  });
+
+  setStatus("Sending…");
+  try {
+    for (const c of chunks) {
+      if (reqChar.writeValueWithResponse) await reqChar.writeValueWithResponse(c);
+      else await reqChar.writeValue(c);
+    }
+  } catch (e) {
+    cleanup();
+    throw e;
+  }
+  setStatus("Printing…");
+  return result;
+}
+
+$("connect").addEventListener("click", async () => {
+  try {
+    device = await navigator.bluetooth.requestDevice({
+      filters: [{ services: [SERVICE] }, { namePrefix: "Letratag" }],
+      optionalServices: [SERVICE],
+    });
+    device.addEventListener("gattserverdisconnected", () => {
+      reqChar = replyChar = null;
+      setStatus(`${device.name || "Printer"} idle (will reconnect on print)`);
+    });
+    await ensureConnected();
+    setStatus(`Connected to ${device.name || "printer"}`, "ok");
+    $("print").disabled = false;
+  } catch (e) {
+    if (e.name !== "NotFoundError") setStatus(e.message, "err");
+  }
+});
+
+// ---- Recent labels: saved after a successful print, per browser ----
+// Settings that make up a label (copies is a print choice, not part of it).
+const LABEL_FIELDS = ["text", "font", "size", "width", "dateFmt", "bold", "picStyle", "bc", "bcType",
+  "bcMod", "len", "align", "pad", "vpad", "invert", "frame", "mirror", "dir"];
+const HISTORY_KEY = "letratag.history", HISTORY_MAX = 10;
+let labelHistory = [];
+try { const h = JSON.parse(localStorage.getItem(HISTORY_KEY)); if (Array.isArray(h)) labelHistory = h; } catch {}
+
+function currentLabel() {
+  const fields = {};
+  for (const id of LABEL_FIELDS) fields[id] = $(id).type === "checkbox" ? $(id).checked : $(id).value;
+  return { fields, image: !!uploaded };
+}
+
+function saveHistory() {
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(labelHistory)); } catch {}
+  renderHistory();
+}
+
+function rememberLabel() {
+  const entry = currentLabel(), key = JSON.stringify(entry.fields);
+  labelHistory = [entry, ...labelHistory.filter(h => JSON.stringify(h.fields) !== key)].slice(0, HISTORY_MAX);
+  saveHistory();
+}
+
+async function restoreLabel(entry) {
+  for (const id of LABEL_FIELDS) {
+    if (!(id in entry.fields)) continue;
+    if ($(id).type === "checkbox") $(id).checked = entry.fields[id];
+    else $(id).value = entry.fields[id];
+  }
+  if (!entry.image) uploaded = null; // the saved label had no image
+  imageReminder = entry.image;
+  await loadFont(); // also re-renders once a web font is ready
+}
+
+function chipTitle(entry) {
+  const f = entry.fields;
+  const t = (f.text || "").split("\n").filter(l => l.trim()).join(" / ");
+  return t || (f.bc ? `Barcode ${f.bc}` : "Image label");
+}
+
+function renderHistory() {
+  $("historyRow").hidden = !labelHistory.length;
+  $("history").replaceChildren(...labelHistory.map((entry, i) => {
+    const chip = document.createElement("span");
+    chip.className = "hchip";
+    const use = document.createElement("button");
+    use.type = "button"; use.className = "use";
+    use.textContent = chipTitle(entry) + (entry.image ? " 🖼" : "");
+    use.title = "Use this label again";
+    use.addEventListener("click", () => restoreLabel(entry));
+    const del = document.createElement("button");
+    del.type = "button"; del.className = "del"; del.textContent = "×";
+    del.title = "Remove from recent labels";
+    del.addEventListener("click", () => { labelHistory.splice(i, 1); saveHistory(); });
+    chip.append(use, del);
+    return chip;
+  }));
+}
+renderHistory();
+
+$("print").addEventListener("click", async () => {
+  $("print").disabled = true;
+  render(); // refresh {date}/{time} in case the page has been open a while
+  try {
+    const copies = Math.max(1, Math.min(20, +$("copies").value || 1));
+    for (let i = 1; i <= copies; i++) {
+      let code;
+      try { code = await printOnce(); }
+      catch (e) { reqChar = null; code = await printOnce(); } // printer drops idle links; retry once
+      const msg = RESULTS[code] ?? `Printer replied ${code}`;
+      const ok = code === 0 || code === 3;
+      setStatus(copies > 1 ? `${msg} (${i}/${copies})` : msg, ok ? "ok" : "err");
+      if (!ok) break;
+      if (i === 1) rememberLabel();
+    }
+  } catch (e) {
+    setStatus(e.message, "err");
+  } finally {
+    $("print").disabled = false;
+  }
+});
+
+if (!navigator.bluetooth) {
+  $("nobt").hidden = false;
+  $("connect").disabled = true;
+}
+</script>
+</body>
+</html>
