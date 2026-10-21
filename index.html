@@ -51,6 +51,7 @@
     }
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; } /* beat display: flex on hidden rows */
   body {
     margin: 0; background: var(--bg); color: var(--text);
     font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
