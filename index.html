@@ -215,10 +215,22 @@
     margin: 0 0 10px; font-size: 12px; font-weight: 600; color: var(--muted);
     text-transform: uppercase; letter-spacing: .06em;
   }
-  footer p { margin: 0 0 8px; }
-  footer .ver { float: right; font-weight: 400; text-transform: none; letter-spacing: 0; }
-  footer p:last-child { margin-bottom: 0; }
   footer a { color: var(--text); }
+  .about-head {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 6px 16px; flex-wrap: wrap;
+    padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--border);
+  }
+  .about-head b { color: var(--text); font-size: 15px; }
+  .about-head .ver { margin-left: 8px; }
+  .about-links { display: flex; gap: 16px; }
+  .credits { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0; }
+  .credits dt { color: var(--text); }
+  .credits dd { margin: 0; }
+  .disclaimer { margin: 12px 0 0; padding-top: 12px; border-top: 1px solid var(--border); font-size: 12px; }
+  @media (max-width: 520px) {
+    .credits { grid-template-columns: 1fr; gap: 2px; }
+    .credits dd { margin-bottom: 8px; }
+  }
   /* Preview and Print stay pinned while scrolling through the settings. */
   .sticky {
     position: sticky; top: 0; z-index: 5; background: var(--bg);
@@ -406,18 +418,32 @@
   </div>
 
   <footer class="panel">
-    <h3>Credits <span class="ver" id="version"></span></h3>
-    <p>Printer protocol based on <a href="https://github.com/ysfchn/dymo-bluetooth" target="_blank" rel="noopener">dymo-bluetooth</a>
-      by Yusuf Cihan (ysfchn), MIT License. Thank you for reverse-engineering the LetraTag!</p>
-    <p>Web fonts from <a href="https://fonts.google.com" target="_blank" rel="noopener">Google Fonts</a>, under their open font licenses.</p>
-    <p>Not affiliated with, endorsed or supported by DYMO. DYMO and LetraTag are trademarks of their respective owners.</p>
+    <h3>About</h3>
+    <div class="about-head">
+      <div>
+        <b>LetraTag label printer</b>
+        <span class="ver" id="version"></span>
+      </div>
+      <div class="about-links">
+        <a href="https://github.com/bartoszbielawski/letratag" target="_blank" rel="noopener">Source on GitHub</a>
+        <a href="https://github.com/bartoszbielawski/letratag/tags" target="_blank" rel="noopener">Version history</a>
+      </div>
+    </div>
+    <dl class="credits">
+      <dt>Printer protocol</dt>
+      <dd><a href="https://github.com/ysfchn/dymo-bluetooth" target="_blank" rel="noopener">dymo-bluetooth</a>
+        by Yusuf Cihan (ysfchn), MIT License. Thank you for reverse-engineering the LetraTag!</dd>
+      <dt>Web fonts</dt>
+      <dd><a href="https://fonts.google.com" target="_blank" rel="noopener">Google Fonts</a>, under their open font licenses</dd>
+    </dl>
+    <p class="disclaimer">Not affiliated with, endorsed or supported by DYMO. DYMO and LetraTag are trademarks of their respective owners.</p>
   </footer>
 </main>
 <div class="toast-wrap" aria-live="polite"><div id="toast" class="toast" hidden></div></div>
 
 <script>
 // Bump with every published change: major.minor.patch (new features: minor; fixes: patch).
-const VERSION = "1.2.2", VERSION_DATE = "2026-10-25";
+const VERSION = "1.2.3", VERSION_DATE = "2026-10-25";
 
 // ---- Protocol (from ysfchn/dymo-bluetooth) ----
 const SERVICE = "be3dd650-2b3d-42f1-99c1-f0f749dd0678";
@@ -1732,7 +1758,7 @@ if (!navigator.bluetooth) {
   }).catch(() => {});
 }
 updateConnUi();
-$("version").textContent = `Version ${VERSION} · ${VERSION_DATE}`;
+$("version").textContent = `v${VERSION} · ${VERSION_DATE}`;
 log(`LetraTag page ${VERSION}`);
 
 </script>
