@@ -41,13 +41,13 @@
   :root {
     --bg: #f6f6f4; --panel: #fff; --text: #1d1d1b; --muted: #6b6b66;
     --border: #dcdcd6; --accent: #1f6feb; --accent-text: #fff;
-    --tape: #fff; --ink: #111; --ok: #1a7f37; --err: #cf222e;
+    --tape: #fff; --ink: #111; --ok: #1a7f37; --err: #cf222e; --warn: #9a6700;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #161616; --panel: #212121; --text: #ececea; --muted: #9a9a94;
       --border: #383836; --accent: #4c8dff; --accent-text: #fff;
-      --ok: #3fb950; --err: #ff6b6b;
+      --ok: #3fb950; --err: #ff6b6b; --warn: #d29922;
     }
   }
   * { box-sizing: border-box; }
@@ -140,8 +140,36 @@
   button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
   button:disabled { opacity: .5; cursor: default; }
   #status { font-size: 13px; color: var(--muted); }
-  #status.ok { color: var(--ok); } #status.err { color: var(--err); }
-  .warn { color: var(--err); font-size: 13px; }
+  #status.ok { color: var(--ok); } #status.err { color: var(--err); } #status.warn { color: var(--warn); }
+  .conn { display: inline-flex; align-items: center; gap: 7px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--border); flex: none; }
+  .dot.on { background: var(--ok); }
+  .dot.idle { background: var(--muted); }
+  .log {
+    max-height: 200px; overflow: auto; margin: 10px 0 8px; padding: 8px 10px;
+    font: 12px/1.5 Menlo, monospace; white-space: pre-wrap; color: var(--muted);
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  }
+  .toast-wrap {
+    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
+    width: min(520px, calc(100% - 32px)); z-index: 50;
+  }
+  .toast {
+    display: flex; gap: 10px; align-items: flex-start; padding: 12px 10px 12px 14px;
+    background: var(--panel); border: 1px solid var(--border); border-left: 4px solid var(--accent);
+    border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.28);
+  }
+  .toast.ok { border-left-color: var(--ok); } .toast.warn { border-left-color: var(--warn); }
+  .toast.error { border-left-color: var(--err); }
+  .toast .icon { font-weight: 700; line-height: 1.4; }
+  .toast.ok .icon { color: var(--ok); } .toast.warn .icon { color: var(--warn); }
+  .toast.error .icon { color: var(--err); } .toast.info .icon { color: var(--accent); }
+  .toast .txt { flex: 1; font-size: 14px; line-height: 1.4; }
+  .toast .txt span { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .toast .actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+  .toast .actions button { padding: 5px 12px; font-size: 13px; }
+  .toast .x { border: 0; background: none; padding: 0 6px; font-size: 18px; color: var(--muted); }
+  p.warn { color: var(--err); font-size: 13px; }
   .history-row { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; }
   .history-row .lbl { font-size: 13px; color: var(--muted); padding-top: 5px; white-space: nowrap; }
   .history { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -200,9 +228,9 @@
 
   <div class="panel">
     <div class="row">
-      <button id="connect">Connect printer</button>
-      <button id="print" class="primary" disabled>Print</button>
-      <span id="status">Not connected</span>
+      <button id="print" class="primary">Connect &amp; print</button>
+      <button id="connect">Choose printer…</button>
+      <span class="conn"><span class="dot" id="dot"></span><span id="status">No printer chosen</span></span>
     </div>
     <p class="warn" id="nobt" hidden>This browser has no Web Bluetooth. Open the page in Chrome or Edge.</p>
   </div>
@@ -371,6 +399,12 @@
       <label class="check"><input id="mirror" type="checkbox"> Mirror (for inside of glass)</label>
     </div>
     </details>
+
+    <details class="sec" id="secLog">
+      <summary>Printer log <span class="sum" id="sumLog"></span></summary>
+      <pre id="log" class="log">Nothing yet. Connecting and printing are recorded here.</pre>
+      <button type="button" id="logCopy">Copy log</button>
+    </details>
   </div>
 
   <footer class="panel">
@@ -381,6 +415,7 @@
     <p>Not affiliated with, endorsed or supported by DYMO. DYMO and LetraTag are trademarks of their respective owners.</p>
   </footer>
 </main>
+<div class="toast-wrap" aria-live="polite"><div id="toast" class="toast" hidden></div></div>
 
 <script>
 // ---- Protocol (from ysfchn/dymo-bluetooth) ----
@@ -400,11 +435,6 @@ const X_STRETCH = 2;
 const DOT_MM = 25.4 / 200;              // 200 dpi across the tape
 const MM_PER_COL = DOT_MM / X_STRETCH;  // estimate along the tape
 const TAPE_MM = 12;
-
-const RESULTS = {
-  0: "Printed", 2: "Print failed", 3: "Printed (battery low)",
-  4: "Cancelled", 6: "Failed: battery low", 7: "Failed: no cassette",
-};
 
 // Pack a column-major bitmap (true = black) into the printer's format.
 function packBitmap(bits, cols) {
@@ -1006,77 +1036,170 @@ document.fonts.ready.then(render);
 render();
 
 // ---- Bluetooth ----
-let device = null, reqChar = null, replyChar = null;
+let device = null, reqChar = null, replyChar = null, busy = false;
+let lastJob = null; // the most recent print, for "Print again"
+
+// Timings, in milliseconds. The printer prints about 7 mm per second.
+const TIMING = { connect: 15000, slack: 10000, grace: 3000 };
+
+// Printer log: recent events with timestamps, to diagnose odd behaviour.
+const LOG_MAX = 80;
+const logLines = [];
+function log(msg) {
+  const t = new Date();
+  logLines.push(`${p2(t.getHours())}:${p2(t.getMinutes())}:${p2(t.getSeconds())}.${String(t.getMilliseconds()).padStart(3, "0")}  ${msg}`);
+  if (logLines.length > LOG_MAX) logLines.shift();
+  $("log").textContent = logLines.join("\n");
+  $("sumLog").textContent = `· ${logLines.length} events`;
+}
 
 function setStatus(msg, kind = "") {
   $("status").textContent = msg;
   $("status").className = kind;
 }
 
+// Connection dot and button labels follow the connection state.
+function updateConnUi() {
+  const connected = !!(device && device.gatt.connected && reqChar);
+  $("dot").className = "dot" + (connected ? " on" : device ? " idle" : "");
+  $("dot").title = connected ? "Connected" : device ? "Idle, reconnects when you print" : "No printer chosen";
+  $("print").textContent = busy ? "Printing…" : device ? "Print" : "Connect & print";
+  $("print").disabled = $("connect").disabled = busy || !navigator.bluetooth;
+}
+
+const withTimeout = (p, ms, msg) =>
+  Promise.race([p, new Promise((_, reject) => setTimeout(() => reject(new Error(msg)), ms))]);
+
+function adoptDevice(d) {
+  device = d;
+  reqChar = replyChar = null;
+  device.addEventListener("gattserverdisconnected", () => {
+    reqChar = replyChar = null;
+    log("disconnected");
+    if (!busy) setStatus("Idle, reconnects when you print");
+    updateConnUi();
+  });
+  updateConnUi();
+}
+
+async function choosePrinter() {
+  const d = await navigator.bluetooth.requestDevice({
+    filters: [{ services: [SERVICE] }, { namePrefix: "Letratag" }],
+    optionalServices: [SERVICE],
+  });
+  log(`chose ${d.name || "printer"}`);
+  adoptDevice(d);
+}
+
 async function ensureConnected() {
-  if (!device) throw new Error("No printer selected");
-  if (!device.gatt.connected || !reqChar) {
-    setStatus("Connecting…");
-    const server = await device.gatt.connect();
+  if (device.gatt.connected && reqChar) return;
+  setStatus("Connecting…");
+  log("connecting");
+  try {
+    const server = await withTimeout(device.gatt.connect(), TIMING.connect, "connect timed out");
     const svc = await server.getPrimaryService(SERVICE);
     reqChar = await svc.getCharacteristic(PRINT_REQUEST);
     replyChar = await svc.getCharacteristic(PRINT_REPLY);
     await replyChar.startNotifications();
-  }
-}
-
-async function printOnce() {
-  await ensureConnected();
-  const chunks = buildPrintChunks(packBitmap(current.bits, current.cols), current.cols);
-
-  // The printer replies twice: "printing" (0/1), then the final result.
-  const reply = replyChar;
-  let cleanup;
-  const result = new Promise((resolve, reject) => {
-    let sawFirst = false;
-    const timer = setTimeout(() => { cleanup(); reject(new Error("No reply from printer")); }, 60000);
-    function onReply(e) {
-      const d = new Uint8Array(e.target.value.buffer);
-      if (d[0] !== ESC || d[1] !== 0x52) return;
-      const code = d[2] === 1 ? 0 : d[2] === 5 ? 2 : d[2];
-      if (!sawFirst && (d[2] === 0 || d[2] === 1)) { sawFirst = true; return; }
-      cleanup(); resolve(code);
-    }
-    cleanup = () => { clearTimeout(timer); reply.removeEventListener("characteristicvaluechanged", onReply); };
-    reply.addEventListener("characteristicvaluechanged", onReply);
-  });
-
-  setStatus("Sending…");
-  try {
-    for (const c of chunks) {
-      if (reqChar.writeValueWithResponse) await reqChar.writeValueWithResponse(c);
-      else await reqChar.writeValue(c);
-    }
   } catch (e) {
-    cleanup();
+    reqChar = replyChar = null;
+    try { device.gatt.disconnect(); } catch {}
     throw e;
   }
-  setStatus("Printing…");
-  return result;
+  log("connected");
+  updateConnUi();
 }
 
-$("connect").addEventListener("click", async () => {
+// One print job ends in one of these outcomes:
+//   ok / lowbatt  printed
+//   failed        the printer said it didn't print (code says why)
+//   unconfirmed   data went out but the result is unknown; never resent automatically
+//   notsent       nothing reached the printer; safe to try again
+async function printJob(job, onProgress) {
+  // Phase 1: connect. Nothing has been sent yet, so one retry is safe.
   try {
-    device = await navigator.bluetooth.requestDevice({
-      filters: [{ services: [SERVICE] }, { namePrefix: "Letratag" }],
-      optionalServices: [SERVICE],
-    });
-    device.addEventListener("gattserverdisconnected", () => {
-      reqChar = replyChar = null;
-      setStatus(`${device.name || "Printer"} idle (will reconnect on print)`);
-    });
     await ensureConnected();
-    setStatus(`Connected to ${device.name || "printer"}`, "ok");
-    $("print").disabled = false;
   } catch (e) {
-    if (e.name !== "NotFoundError") setStatus(e.message, "err");
+    log(`connect failed: ${e.message}, retrying once`);
+    try {
+      await ensureConnected();
+    } catch (e2) {
+      log(`connect failed again: ${e2.message}`);
+      return { outcome: "notsent" };
+    }
   }
-});
+
+  // Phase 2: from the first byte on, never resend; only find out what happened.
+  const chunks = buildPrintChunks(packBitmap(job.bits, job.cols), job.cols);
+  const printMs = job.cols * MM_PER_COL / 7 * 1000;
+  const req = reqChar, reply = replyChar, dev = device;
+
+  return new Promise(resolve => {
+    let sentAll = false, sawProgress = false, done = false, timer = null;
+    const t0 = performance.now();
+    const at = () => `${((performance.now() - t0) / 1000).toFixed(1)} s`;
+    const finish = r => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      reply.removeEventListener("characteristicvaluechanged", onReply);
+      dev.removeEventListener("gattserverdisconnected", onDrop);
+      resolve(r);
+    };
+    // After sending: wait for the result, but only as long as printing can take.
+    const armTimer = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (sawProgress) {
+          // One "ok" reply and then silence: count it as printed.
+          log(`only one reply by ${at()}, treating as printed`);
+          finish({ outcome: "ok" });
+        } else {
+          log(`no reply by ${at()}`);
+          finish({ outcome: "unconfirmed", reason: "The printer didn't confirm." });
+        }
+      }, sawProgress ? printMs + TIMING.grace : printMs + TIMING.slack);
+    };
+    function onReply(e) {
+      const d = new Uint8Array(e.target.value.buffer);
+      if (d[0] !== ESC || d[1] !== 0x52) { log(`reply ignored: ${[...d].join(" ")}`); return; }
+      log(`reply ${d[2]} at ${at()}`);
+      // 0 and 1 mean "printing" or "printed" (the printer uses both); others are final.
+      if (d[2] === 0 || d[2] === 1) {
+        if (sawProgress) return finish({ outcome: "ok" });
+        sawProgress = true;
+        if (sentAll) armTimer();
+        return;
+      }
+      if (d[2] === 3) return finish({ outcome: "lowbatt" });
+      finish({ outcome: "failed", code: d[2] === 5 ? 2 : d[2] });
+    }
+    function onDrop() {
+      log(`link dropped at ${at()}`);
+      finish({ outcome: "unconfirmed", reason: "The connection dropped while printing." });
+    }
+    reply.addEventListener("characteristicvaluechanged", onReply);
+    dev.addEventListener("gattserverdisconnected", onDrop);
+
+    (async () => {
+      try {
+        for (let i = 0; i < chunks.length && !done; i++) {
+          if (req.writeValueWithResponse) await req.writeValueWithResponse(chunks[i]);
+          else await req.writeValue(chunks[i]);
+          onProgress?.((i + 1) / chunks.length);
+        }
+      } catch (e) {
+        log(`send failed at ${at()}: ${e.message}`);
+        return finish({ outcome: "unconfirmed", reason: "Sending was interrupted." });
+      }
+      if (done) return;
+      sentAll = true;
+      log(`sent ${chunks.length} pieces in ${at()}`);
+      setStatus("Printing…");
+      armTimer();
+    })();
+  });
+}
 
 // ---- Recent labels: saved after a successful print, per browser ----
 // Settings that make up a label (copies is a print choice, not part of it).
@@ -1097,8 +1220,8 @@ function saveHistory() {
   renderHistory();
 }
 
-function rememberLabel() {
-  const entry = currentLabel(), key = JSON.stringify(entry.fields);
+function rememberLabel(entry = currentLabel()) {
+  const key = JSON.stringify(entry.fields);
   labelHistory = [entry, ...labelHistory.filter(h => JSON.stringify(h.fields) !== key)].slice(0, HISTORY_MAX);
   saveHistory();
 }
@@ -1140,32 +1263,159 @@ function renderHistory() {
 }
 renderHistory();
 
-$("print").addEventListener("click", async () => {
-  $("print").disabled = true;
-  render(); // refresh {date}/{time} in case the page has been open a while
-  try {
-    const copies = Math.max(1, Math.min(20, +$("copies").value || 1));
-    for (let i = 1; i <= copies; i++) {
-      let code;
-      try { code = await printOnce(); }
-      catch (e) { reqChar = null; code = await printOnce(); } // printer drops idle links; retry once
-      const msg = RESULTS[code] ?? `Printer replied ${code}`;
-      const ok = code === 0 || code === 3;
-      setStatus(copies > 1 ? `${msg} (${i}/${copies})` : msg, ok ? "ok" : "err");
-      if (!ok) break;
-      if (i === 1) rememberLabel();
+// ---- Toasts: one at a time; outcomes that need a decision stay until closed ----
+let toastTimer = null;
+function showToast({ kind = "info", title, body = "", actions = [], timeout = 0 }) {
+  clearTimeout(toastTimer);
+  const t = $("toast");
+  t.className = `toast ${kind}`;
+  const icon = document.createElement("span");
+  icon.className = "icon";
+  icon.textContent = { ok: "✓", warn: "⚠", error: "✗", info: "…" }[kind];
+  const txt = document.createElement("div");
+  txt.className = "txt";
+  const b = document.createElement("b");
+  b.textContent = title;
+  txt.append(b);
+  if (body) { const s = document.createElement("span"); s.textContent = body; txt.append(s); }
+  if (actions.length) {
+    const row = document.createElement("div");
+    row.className = "actions";
+    for (const a of actions) {
+      const btn = document.createElement("button");
+      btn.type = "button"; btn.textContent = a.label;
+      btn.addEventListener("click", () => { hideToast(); a.run(); });
+      row.append(btn);
     }
-  } catch (e) {
-    setStatus(e.message, "err");
+    txt.append(row);
+  }
+  const x = document.createElement("button");
+  x.type = "button"; x.className = "x"; x.textContent = "×"; x.title = "Close";
+  x.addEventListener("click", hideToast);
+  t.replaceChildren(icon, txt, x);
+  t.hidden = false;
+  if (timeout) toastTimer = setTimeout(hideToast, timeout);
+}
+function hideToast() { clearTimeout(toastTimer); $("toast").hidden = true; }
+
+const FAIL_TEXT = {
+  2: "Is the lid closed and is there tape?",
+  4: "The print was cancelled on the printer.",
+  6: "The batteries are too low to print.",
+  7: "Is the tape cassette in?",
+};
+
+async function runPrint(job, copies) {
+  if (busy) return;
+  busy = true;
+  updateConnUi();
+  let printed = 0, lowBatt = false;
+  try {
+    for (let i = 1; i <= copies; i++) {
+      const of = copies > 1 ? ` (${i} of ${copies})` : "";
+      if (copies > 1) showToast({ kind: "info", title: `Printing ${i} of ${copies}…` });
+      log(`print${of}: ${job.cols} dots`);
+      const r = await printJob(job, f => setStatus(`Sending ${Math.round(f * 100)}%${of}`));
+      if (r.outcome === "ok" || r.outcome === "lowbatt") {
+        printed++;
+        lowBatt ||= r.outcome === "lowbatt";
+        if (printed === 1 && job.label) rememberLabel(job.label);
+        continue;
+      }
+      reportProblem(r, job, i, copies, printed);
+      return;
+    }
+    const title = copies > 1 ? `${copies} labels printed` : "Printed";
+    setStatus(lowBatt ? "Printed, batteries are low" : "Printed ✓", lowBatt ? "warn" : "ok");
+    showToast(lowBatt
+      ? { kind: "warn", title, body: "The batteries are low.", timeout: 6000 }
+      : { kind: "ok", title, body: job.label ? chipTitle(job.label) : "", timeout: 3000 });
   } finally {
-    $("print").disabled = false;
+    busy = false;
+    updateConnUi();
+  }
+}
+
+function reportProblem(r, job, i, copies, printed) {
+  const which = copies > 1 ? `Label ${i} of ${copies}: ` : "";
+  const remaining = copies - printed;
+  if (r.outcome === "unconfirmed") {
+    setStatus("Check the label", "warn");
+    showToast({
+      kind: "warn", title: "Check the label",
+      body: `${which}${r.reason} It was sent, so it may well have printed.`,
+      actions: [
+        { label: "Print again", run: () => runPrint(job, 1) },
+        { label: "It printed", run: () => { if (!printed && job.label) rememberLabel(job.label); } },
+      ],
+    });
+  } else if (r.outcome === "notsent") {
+    setStatus("Couldn't reach the printer", "err");
+    showToast({
+      kind: "error", title: "Couldn't reach the printer",
+      body: `${which}Nothing was sent. Is it switched on and nearby?`,
+      actions: [
+        { label: "Try again", run: () => runPrint(job, remaining) },
+        { label: "Choose printer", run: () => choosePrinter().then(() => runPrint(job, remaining)).catch(() => {}) },
+      ],
+    });
+  } else {
+    setStatus("Print failed", "err");
+    showToast({
+      kind: "error", title: "Print failed",
+      body: which + (FAIL_TEXT[r.code] || `The printer replied with code ${r.code}.`),
+      actions: [{ label: "Try again", run: () => runPrint(job, remaining) }],
+    });
+  }
+}
+
+$("print").addEventListener("click", async () => {
+  if (busy) return;
+  if (!device) {
+    // Picking a printer must happen straight from the click.
+    try { await choosePrinter(); }
+    catch (e) { if (e.name !== "NotFoundError") setStatus(e.message, "err"); return; }
+  }
+  render(); // refresh {date}/{time} in case the page has been open a while
+  lastJob = { bits: current.bits, cols: current.cols, label: currentLabel() };
+  await runPrint(lastJob, Math.max(1, Math.min(20, +$("copies").value || 1)));
+});
+
+$("connect").addEventListener("click", async () => {
+  try {
+    await choosePrinter();
+    await ensureConnected();
+    setStatus(`Connected to ${device.name || "printer"}`, "ok");
+  } catch (e) {
+    if (e.name !== "NotFoundError") setStatus("Couldn't connect. Is the printer on?", "err");
+  }
+});
+
+$("logCopy").addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(logLines.join("\n"));
+    showToast({ kind: "ok", title: "Log copied", timeout: 2000 });
+  } catch {
+    showToast({ kind: "error", title: "Couldn't copy the log", timeout: 3000 });
   }
 });
 
 if (!navigator.bluetooth) {
   $("nobt").hidden = false;
-  $("connect").disabled = true;
+  setStatus("Bluetooth isn't available in this browser", "err");
+} else if (navigator.bluetooth.getDevices) {
+  // Chrome can remember a printer chosen on an earlier visit.
+  navigator.bluetooth.getDevices().then(ds => {
+    const d = ds.find(x => (x.name || "").startsWith("Letratag")) || ds[0];
+    if (d && !device) {
+      adoptDevice(d);
+      setStatus(`${d.name || "Printer"} remembered, connects when you print`);
+      log("remembered the printer from a previous visit");
+    }
+  }).catch(() => {});
 }
+updateConnUi();
+
 </script>
 </body>
 </html>
