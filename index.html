@@ -274,9 +274,9 @@
       <button type="button" class="chip" data-token="{date+1m}">{date+1m}</button>
       <button type="button" class="chip" data-token="{time}">{time}</button>
       <select id="dateFmt" class="mini" title="Date format">
+        <option value="iso" selected>2026-10-21</option>
         <option value="dmy">21.10.2026</option>
         <option value="dm">21.10</option>
-        <option value="iso">2026-10-21</option>
         <option value="mdy">10/21/2026</option>
         <option value="long">21 Oct 2026</option>
       </select>
@@ -417,7 +417,7 @@
 
 <script>
 // Bump with every published change: major.minor.patch (new features: minor; fixes: patch).
-const VERSION = "1.2.0", VERSION_DATE = "2026-10-25";
+const VERSION = "1.2.1", VERSION_DATE = "2026-10-25";
 
 // ---- Protocol (from ysfchn/dymo-bluetooth) ----
 const SERVICE = "be3dd650-2b3d-42f1-99c1-f0f749dd0678";
