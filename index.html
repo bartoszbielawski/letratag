@@ -36,7 +36,7 @@
 <!-- Optional web fonts; without internet these fall back to system fonts. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo+Black&family=Bebas+Neue&family=Caveat:wght@400;700&family=Fredoka:wght@400;700&family=Inter:wght@400;800&family=Lobster&family=Oswald:wght@400;700&family=Pacifico&family=Permanent+Marker&family=Press+Start+2P&family=Roboto+Condensed:wght@400;700&family=Silkscreen:wght@400;700&family=Space+Mono:wght@400;700&family=VT323&display=block">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo+Narrow:wght@400;700&family=Barlow+Condensed:wght@500;700&family=Fjalla+One&family=League+Gothic&family=Archivo+Black&family=Bebas+Neue&family=Caveat:wght@400;700&family=Fredoka:wght@400;700&family=Inter:wght@400;800&family=Oswald:wght@400;700&family=Pacifico&family=Permanent+Marker&family=Roboto+Condensed:wght@400;700&family=Silkscreen:wght@400;700&family=Space+Mono:wght@400;700&family=VT323&display=block">
 <style>
   :root {
     --bg: #f6f6f4; --panel: #fff; --text: #1d1d1b; --muted: #6b6b66;
@@ -182,6 +182,34 @@
   .hchip .del { padding: 4px 9px 4px 5px; color: var(--muted); }
   .hchip:hover { border-color: var(--accent); }
   .hchip .del:hover { color: var(--err); }
+  .font-btn {
+    display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%;
+    padding: 6px 10px; font-size: 15px; text-align: left; background: var(--bg);
+  }
+  .font-panel { margin-top: 12px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+  .fp-top { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+  .fp-top .tabs { margin: 0; }
+  .fp-count { font-size: 12px; color: var(--muted); margin-left: auto; }
+  .fp-recent { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+  .fp-recent .lbl { font-size: 13px; color: var(--muted); }
+  .fp-recent .tabs { margin: 0; }
+  .font-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px;
+    max-height: 360px; overflow-y: auto; padding: 2px;
+  }
+  .fcard { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; text-align: left; background: var(--panel); }
+  .fcard.sel { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .fcard.dim { opacity: .45; }
+  .fname { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+  .flen { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .fstar { color: var(--muted); cursor: pointer; padding: 0 2px; }
+  .fstar:hover { color: var(--warn); }
+  .fstar.on { color: var(--warn); }
+  .fprev { height: 40px; padding: 2px 4px; display: flex; align-items: center; overflow: hidden; background: #fff; border-radius: 3px; }
+  .fprev canvas { height: 36px; flex: none; image-rendering: pixelated; }
+  .ftags { display: flex; gap: 4px; flex-wrap: wrap; }
+  .ftag { font-size: 11px; padding: 0 6px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); }
+  .fp-hint { margin: 8px 0 0; font-size: 12px; }
   footer.panel { color: var(--muted); font-size: 13px; line-height: 1.55; }
   footer h3 {
     margin: 0 0 10px; font-size: 12px; font-weight: 600; color: var(--muted);
@@ -260,56 +288,10 @@
 
     <div class="grid">
       <label>Font
-        <select id="font">
-          <optgroup label="Mac system fonts">
-            <option value="-apple-system, Helvetica, Arial, sans-serif">System (SF)</option>
-            <option value="'Helvetica Neue', Helvetica, sans-serif">Helvetica Neue</option>
-            <option value="'Avenir Next', Avenir, sans-serif">Avenir Next</option>
-            <option value="'Avenir Next Condensed', sans-serif">Avenir Next Condensed</option>
-            <option value="'DIN Alternate', sans-serif">DIN Alternate</option>
-            <option value="'DIN Condensed', sans-serif">DIN Condensed</option>
-            <option value="Futura, sans-serif">Futura</option>
-            <option value="'Gill Sans', sans-serif">Gill Sans</option>
-            <option value="Optima, sans-serif">Optima</option>
-            <option value="Verdana, sans-serif">Verdana</option>
-            <option value="'Arial Rounded MT Bold', sans-serif">Arial Rounded</option>
-            <option value="'Arial Black', sans-serif">Arial Black</option>
-            <option value="Impact, sans-serif">Impact</option>
-            <option value="Georgia, serif">Georgia</option>
-            <option value="Baskerville, serif">Baskerville</option>
-            <option value="Didot, serif">Didot</option>
-            <option value="Palatino, serif">Palatino</option>
-            <option value="Rockwell, serif">Rockwell</option>
-            <option value="'American Typewriter', serif">American Typewriter</option>
-            <option value="Copperplate, serif">Copperplate</option>
-            <option value="Menlo, monospace">Menlo</option>
-            <option value="'Courier New', monospace">Courier New</option>
-            <option value="'Chalkboard SE', cursive">Chalkboard</option>
-            <option value="Chalkduster, cursive">Chalkduster</option>
-            <option value="'Marker Felt', cursive">Marker Felt</option>
-            <option value="Noteworthy, cursive">Noteworthy</option>
-            <option value="'Bradley Hand', cursive">Bradley Hand</option>
-            <option value="'Snell Roundhand', cursive">Snell Roundhand</option>
-            <option value="Phosphate, fantasy">Phosphate</option>
-          </optgroup>
-          <optgroup label="Web fonts (need internet)">
-            <option value="'Bebas Neue', sans-serif">Bebas Neue</option>
-            <option value="Anton, sans-serif">Anton</option>
-            <option value="Oswald, sans-serif">Oswald</option>
-            <option value="'Roboto Condensed', sans-serif">Roboto Condensed</option>
-            <option value="Inter, sans-serif">Inter</option>
-            <option value="'Archivo Black', sans-serif">Archivo Black</option>
-            <option value="Fredoka, sans-serif">Fredoka</option>
-            <option value="'Space Mono', monospace">Space Mono</option>
-            <option value="'Permanent Marker', cursive">Permanent Marker</option>
-            <option value="Caveat, cursive">Caveat</option>
-            <option value="Pacifico, cursive">Pacifico</option>
-            <option value="Lobster, cursive">Lobster</option>
-            <option value="Silkscreen, monospace">Silkscreen (pixel)</option>
-            <option value="VT323, monospace">VT323 (pixel)</option>
-            <option value="'Press Start 2P', monospace">Press Start 2P (pixel)</option>
-          </optgroup>
-        </select>
+        <button type="button" id="fontBtn" class="font-btn" aria-expanded="false" aria-controls="fontPanel">
+          <span id="fontBtnName">System (SF)</span><span aria-hidden="true">▾</span>
+        </button>
+        <select id="font" hidden></select>
       </label>
       <label>Size <span id="sizeVal"></span>
         <input id="size" type="range" min="30" max="100" value="100">
@@ -318,6 +300,21 @@
         <input id="width" type="range" min="40" max="250" step="5" value="100">
       </label>
       <label class="check"><input id="bold" type="checkbox" checked> Bold</label>
+    </div>
+    <div id="fontPanel" class="font-panel" hidden>
+      <div class="fp-top">
+        <div class="tabs" id="fontFilters"></div>
+        <label class="check"><input type="checkbox" id="fontOffline"> On this computer only</label>
+        <select id="fontSort" class="mini" title="Sort fonts">
+          <option value="name">A–Z</option>
+          <option value="len">Shortest label first</option>
+        </select>
+        <span class="fp-count" id="fontCount"></span>
+        <button type="button" id="fontClose" class="chip">Close ▴</button>
+      </div>
+      <div class="fp-recent" id="fontRecentRow" hidden><span class="lbl">Recent</span><div class="tabs" id="fontRecent"></div></div>
+      <div class="font-grid" id="fontGrid"></div>
+      <p class="sub fp-hint">Each font shows your text as the printer's dots. ☆ marks a favourite, always shown under Recommended · web fonts need internet and print the same on every computer · arrow keys step through fonts</p>
     </div>
     <div class="emoji-bar">
       <span class="lbl">Recent</span>
@@ -328,7 +325,7 @@
       <div class="tabs" id="emojiTabs"></div>
       <div class="emoji-grid" id="emojiGrid"></div>
     </div>
-    <p class="sub" style="margin:8px 0 0">Emoji print as solid silhouettes. You can also type them directly (Ctrl+Cmd+Space).</p>
+    <p class="sub" style="margin:8px 0 0" id="emojiHint">Emoji print as solid silhouettes.</p>
 
     <details class="sec" id="secImage">
       <summary>Image <span class="sum" id="sumImage"></span></summary>
@@ -614,6 +611,132 @@ function pictureMask(src, w, h, style) {
   return mask;
 }
 
+// ---- Font catalog: tags describe each font; "|condensed" picks a family's narrow width ----
+// Tags: narrow, bold, sans, serif, mono, hand, pixel, caps, round. web = needs internet.
+const FONTS = [
+  ["System (SF)", "-apple-system, Helvetica, Arial, sans-serif", "sans"],
+  ["Helvetica Neue", "'Helvetica Neue', Helvetica, sans-serif", "sans"],
+  ["Helvetica Neue Condensed", "'Helvetica Neue', Helvetica, sans-serif|condensed", "sans narrow"],
+  ["Avenir Next", "'Avenir Next', Avenir, sans-serif", "sans"],
+  ["Avenir Next Condensed", "'Avenir Next Condensed', sans-serif", "sans narrow"],
+  ["DIN Alternate", "'DIN Alternate', sans-serif", "sans"],
+  ["DIN Condensed", "'DIN Condensed', sans-serif", "sans narrow"],
+  ["Futura", "Futura, sans-serif", "sans"],
+  ["Futura Condensed", "Futura, sans-serif|condensed", "sans narrow"],
+  ["Gill Sans", "'Gill Sans', sans-serif", "sans"],
+  ["Optima", "Optima, sans-serif", "sans"],
+  ["Verdana", "Verdana, sans-serif", "sans"],
+  ["Arial Rounded", "'Arial Rounded MT Bold', sans-serif", "sans round bold"],
+  ["Arial Black", "'Arial Black', sans-serif", "sans bold"],
+  ["Impact", "Impact, sans-serif", "sans narrow bold"],
+  ["Georgia", "Georgia, serif", "serif"],
+  ["Palatino", "Palatino, serif", "serif"],
+  ["Rockwell", "Rockwell, serif", "serif bold"],
+  ["American Typewriter", "'American Typewriter', serif", "serif"],
+  ["American Typewriter Condensed", "'American Typewriter', serif|condensed", "serif narrow"],
+  ["Menlo", "Menlo, monospace", "mono"],
+  ["Courier New", "'Courier New', monospace", "mono"],
+  ["Chalkboard", "'Chalkboard SE', cursive", "hand"],
+  ["Chalkduster", "Chalkduster, cursive", "hand"],
+  ["Marker Felt", "'Marker Felt', cursive", "hand"],
+  ["Noteworthy", "Noteworthy, cursive", "hand"],
+  ["Bradley Hand", "'Bradley Hand', cursive", "hand"],
+  ["Phosphate", "Phosphate, fantasy", "bold caps"],
+  ["Bebas Neue", "'Bebas Neue', sans-serif", "sans narrow bold caps", { web: 1 }],
+  ["Anton", "Anton, sans-serif", "sans narrow bold", { web: 1 }],
+  ["Oswald", "Oswald, sans-serif", "sans narrow", { web: 1 }],
+  ["Roboto Condensed", "'Roboto Condensed', sans-serif", "sans narrow", { web: 1 }],
+  ["Barlow Condensed", "'Barlow Condensed', sans-serif", "sans narrow", { web: 1 }],
+  ["League Gothic", "'League Gothic', sans-serif", "sans narrow bold", { web: 1 }],
+  ["Fjalla One", "'Fjalla One', sans-serif", "sans narrow bold", { web: 1 }],
+  ["Archivo Narrow", "'Archivo Narrow', sans-serif", "sans narrow", { web: 1 }],
+  ["Inter", "Inter, sans-serif", "sans", { web: 1 }],
+  ["Archivo Black", "'Archivo Black', sans-serif", "sans bold", { web: 1 }],
+  ["Fredoka", "Fredoka, sans-serif", "sans round", { web: 1 }],
+  ["Space Mono", "'Space Mono', monospace", "mono", { web: 1 }],
+  ["Permanent Marker", "'Permanent Marker', cursive", "hand", { web: 1 }],
+  ["Caveat", "Caveat, cursive", "hand", { web: 1 }],
+  ["Pacifico", "Pacifico, cursive", "hand", { web: 1 }],
+  ["Silkscreen", "Silkscreen, monospace", "pixel", { web: 1 }],
+  ["VT323", "VT323, monospace", "pixel", { web: 1 }],
+  // Shown only when SF (-apple-system) isn't there, i.e. not on a Mac.
+  ["System UI", "system-ui, sans-serif", "sans"],
+  // Windows (some come with Microsoft Office).
+  ["Segoe UI", "'Segoe UI', sans-serif", "sans"],
+  ["Bahnschrift", "Bahnschrift, sans-serif", "sans"],
+  ["Bahnschrift Condensed", "Bahnschrift, sans-serif|condensed", "sans narrow"],
+  ["Arial", "Arial, sans-serif", "sans"],
+  ["Arial Narrow", "'Arial Narrow', sans-serif", "sans narrow"],
+  ["Tahoma", "Tahoma, sans-serif", "sans"],
+  ["Trebuchet MS", "'Trebuchet MS', sans-serif", "sans"],
+  ["Calibri", "Calibri, sans-serif", "sans"],
+  ["Franklin Gothic Medium", "'Franklin Gothic Medium', sans-serif", "sans"],
+  ["Cambria", "Cambria, serif", "serif"],
+  ["Palatino Linotype", "'Palatino Linotype', serif", "serif"],
+  ["Consolas", "Consolas, monospace", "mono"],
+  ["Ink Free", "'Ink Free', cursive", "hand"],
+  ["Segoe Print", "'Segoe Print', cursive", "hand"],
+  // Linux.
+  ["DejaVu Sans", "'DejaVu Sans', sans-serif", "sans"],
+  ["DejaVu Sans Condensed", "'DejaVu Sans', sans-serif|condensed", "sans narrow"],
+  ["DejaVu Sans Mono", "'DejaVu Sans Mono', monospace", "mono"],
+  ["Liberation Sans", "'Liberation Sans', sans-serif", "sans"],
+  ["Liberation Sans Narrow", "'Liberation Sans Narrow', sans-serif", "sans narrow"],
+  ["Ubuntu", "Ubuntu, sans-serif", "sans"],
+  ["Ubuntu Condensed", "'Ubuntu Condensed', sans-serif", "sans narrow"],
+  ["Noto Sans", "'Noto Sans', sans-serif", "sans"],
+  ["Cantarell", "Cantarell, sans-serif", "sans"],
+].map(([name, value, tags, o = {}]) => ({ name, value, tags: tags.split(" "), web: !!o.web }));
+
+// Recommended: print well at 30 dots and cover every style once or twice.
+// Fonts a computer doesn't have are left out automatically.
+const RECOMMENDED = new Set([
+  "System (SF)", "System UI", "DIN Alternate", "Verdana", "Avenir Next", "Futura", "Arial Rounded",
+  "DIN Condensed", "Helvetica Neue Condensed", "Impact", "Bebas Neue", "Oswald", "Barlow Condensed",
+  "Fjalla One", "League Gothic", "Georgia", "Rockwell", "American Typewriter", "Menlo", "Silkscreen",
+  "Marker Felt", "Permanent Marker",
+  "Segoe UI", "Bahnschrift", "Bahnschrift Condensed", "Consolas",
+  "DejaVu Sans", "DejaVu Sans Condensed", "DejaVu Sans Mono",
+]);
+for (const f of FONTS) f.rec = RECOMMENDED.has(f.name);
+const FONT_BY_VALUE = new Map(FONTS.map(f => [f.value, f]));
+
+// Fonts on this computer: a missing font silently falls back to a generic one,
+// so compare its width against the generic fonts. A "|condensed" variant must
+// also come out narrower than its family's normal width.
+function fontInstalled(value) {
+  const [list, stretch] = value.split("|");
+  const first = list.split(",")[0].trim();
+  if (/^(system-ui|sans-serif|serif|monospace|cursive|fantasy)$/.test(first)) return true;
+  if (first === "-apple-system") return /^mac/i.test(navigator.userAgentData?.platform || navigator.platform || "");
+  const m = document.createElement("canvas").getContext("2d");
+  const sample = "mmmmmmmmmmlli WQ@#0123 abcdefghij";
+  const w = f => { m.font = f; return m.measureText(sample).width; };
+  if (!["monospace", "serif", "sans-serif"].some(g => w(`72px ${first}, ${g}`) !== w(`72px ${g}`))) return false;
+  return !stretch || w(`${stretch} 72px ${first}, monospace`) < w(`72px ${first}, monospace`) * 0.97;
+}
+for (const f of FONTS) f.installed = f.web || fontInstalled(f.value);
+const SF = "-apple-system, Helvetica, Arial, sans-serif";
+// "System UI" stands in for SF elsewhere; on a Mac it would just repeat it.
+FONT_BY_VALUE.get("system-ui, sans-serif").hidden = FONT_BY_VALUE.get(SF).installed;
+$("font").replaceChildren(...FONTS.map(f => new Option(f.name, f.value)));
+// Start in a font this computer has.
+if (!FONT_BY_VALUE.get($("font").value).installed) $("font").value = "system-ui, sans-serif";
+
+// Apply a catalog font to an element on screen (family plus optional stretch).
+function styleAsFont(el, value) {
+  const [family, stretch] = value.split("|");
+  el.style.fontFamily = family;
+  el.style.fontStretch = stretch || "normal";
+}
+
+// Emoji keyboard shortcut for this system (Linux desktops differ, so none there).
+{
+  const os = (navigator.userAgentData?.platform || navigator.platform || "").toLowerCase();
+  const key = os.startsWith("mac") ? "Ctrl+Cmd+Space" : os.startsWith("win") ? "Win + ." : "";
+  if (key) $("emojiHint").textContent += ` You can also type them directly (${key}).`;
+}
+
 // ---- Rendering ----
 // Screen pixels per real millimetre. Browsers assume 96 dpi, which is rarely
 // true, so the user can calibrate against a bank card (85.6 mm wide).
@@ -626,9 +749,38 @@ try {
 const preview = $("preview");
 let current = null; // { bits, cols }
 
-function fontSpec(px) {
-  return `${$("bold").checked ? "bold " : ""}${px}px ${$("font").value}`;
+function fontSpec(px, value = $("font").value) {
+  const [family, stretch] = value.split("|");
+  return `${$("bold").checked ? "bold " : ""}${stretch ? stretch + " " : ""}${px}px ${family}`;
 }
+
+// Size by the text's real ink: at 100% the tallest letter top to the lowest
+// descender exactly fills the printable height (or each line's share of it).
+function horizontalMetrics(lines, sizePct, spec) {
+  const REF = 100, lineH = HEIGHT / Math.max(lines.length, 1);
+  const m = document.createElement("canvas").getContext("2d");
+  m.font = spec(REF);
+  let refAsc = 0, refDesc = 0;
+  for (const l of lines.some(l => l.trim()) ? lines : ["Hg"]) {
+    if (!l.trim()) continue;
+    const t = m.measureText(l);
+    refAsc = Math.max(refAsc, t.actualBoundingBoxAscent);
+    refDesc = Math.max(refDesc, t.actualBoundingBoxDescent);
+  }
+  const refInk = (refAsc + refDesc) || REF * 0.9;
+  const fontPx = Math.max(4, lineH * sizePct * REF / refInk);
+  const font = spec(fontPx);
+  m.font = font;
+  return {
+    font, lineH,
+    textW: Math.max(1, ...lines.map(l => m.measureText(l).width)),
+    ascent: refAsc * fontPx / REF,
+    ink: refInk * fontPx / REF,
+  };
+}
+
+// What the rest of the label (barcode, image, margins) takes, for the font picker's fit check.
+let fitInfo = { otherMm: 0 };
 
 function render() {
   const text = expandDates($("text").value);
@@ -651,23 +803,7 @@ function render() {
   let textUnits, drawText;
 
   if (!vertical) {
-    // Size by the text's real ink: at 100% the tallest letter top to the lowest
-    // descender exactly fills the printable height (or each line's share of it).
-    m.font = fontSpec(REF);
-    let refAsc = 0, refDesc = 0;
-    for (const l of lines.some(l => l.trim()) ? lines : ["Hg"]) {
-      if (!l.trim()) continue;
-      const t = m.measureText(l);
-      refAsc = Math.max(refAsc, t.actualBoundingBoxAscent);
-      refDesc = Math.max(refDesc, t.actualBoundingBoxDescent);
-    }
-    const refInk = (refAsc + refDesc) || REF * 0.9;
-    const fontPx = Math.max(4, lineH * sizePct * REF / refInk);
-    const ascent = refAsc * fontPx / REF;
-    const ink = refInk * fontPx / REF;
-    const font = fontSpec(fontPx);
-    m.font = font;
-    const textW = Math.max(1, ...lines.map(l => m.measureText(l).width));
+    const { font, textW, ascent, ink } = horizontalMetrics(lines, sizePct, fontSpec);
     textUnits = textW;
     drawText = (ctx, x) => {
       ctx.font = font;
@@ -746,6 +882,7 @@ function render() {
   const rightM = bars && !pic && !hasText ? Math.max(padCols, quiet) : padCols;
   let content = barCols + gapAfterBars + picCols + gapAfterPic + textCols;
   let cols = leftM + content + rightM, offset = 0;
+  fitInfo = { otherMm: (cols - textCols) * MM_PER_COL };
 
   // Fixed length: squeeze the text if needed, then place content by alignment.
   const lenMm = +$("len").value || 0;
@@ -888,10 +1025,17 @@ function render() {
   $("sumLayout").textContent = layout.length ? "· " + layout.join(", ") : "";
 
   if (imageReminder && !uploaded) notes.push("this label had an image, add it again under Image");
+  const lf = FONT_BY_VALUE.get($("font").value);
+  if (!lf || !lf.installed) errors.push(`font ${lf ? lf.name : "used by this label"} isn't on this computer, printing with a substitute`);
   if ($("real").checked && !calibrated) notes.push("screen not calibrated, sizes are approximate");
   if (cols >= MAX_COLS) errors.push("too long, cut off");
   $("meta").textContent = [`${cols} dots · about ${(cols * MM_PER_COL).toFixed(0)} mm`, ...notes, ...errors].join(" · ");
   $("meta").className = errors.length ? "meta err" : "meta";
+
+  const f = FONT_BY_VALUE.get($("font").value);
+  $("fontBtnName").textContent = (f ? f.name : "Font") + (f && f.installed ? "" : " ⚠");
+  styleAsFont($("fontBtnName"), $("font").value);
+  scheduleFontPanel();
 }
 
 function sizeCard() {
@@ -1034,6 +1178,174 @@ $("font").addEventListener("change", loadFont);
 $("bold").addEventListener("change", loadFont);
 document.fonts.ready.then(render);
 render();
+
+// ---- Font picker: each font shown as printed dots, with tags and label length ----
+const FONT_FILTERS = [["rec", "Recommended"], ["all", "All"], ["narrow", "Narrow"], ["bold", "Bold"], ["sans", "Sans"],
+  ["serif", "Serif"], ["mono", "Mono"], ["hand", "Handwritten"], ["pixel", "Pixel"]];
+const TAG_TEXT = { narrow: "narrow", bold: "bold", sans: "sans", serif: "serif", mono: "mono",
+  hand: "handwritten", pixel: "pixel", caps: "caps only", round: "rounded" };
+const RECENT_FONTS_KEY = "letratag.recentFonts", FONT_FILTER_KEY = "letratag.fontFilter";
+const FAV_FONTS_KEY = "letratag.favFonts";
+let fontFilter = "rec", recentFonts = [], favFonts = [];
+try { favFonts = JSON.parse(localStorage.getItem(FAV_FONTS_KEY)) || []; } catch {}
+try { recentFonts = JSON.parse(localStorage.getItem(RECENT_FONTS_KEY)) || []; } catch {}
+try { if (FONT_FILTERS.some(([k]) => k === localStorage.getItem(FONT_FILTER_KEY))) fontFilter = localStorage.getItem(FONT_FILTER_KEY); } catch {}
+
+// The label's text in one font, as the printer's dots, plus its length.
+function fontSample(value, lines) {
+  const hm = horizontalMetrics(lines, +$("size").value / 100, px => fontSpec(px, value));
+  const xScale = X_STRETCH * (+$("width").value / 100);
+  const cols = Math.max(1, Math.min(MAX_COLS, Math.ceil(hm.textW * xScale)));
+  const c = document.createElement("canvas");
+  c.width = cols; c.height = HEIGHT;
+  const ctx = c.getContext("2d", { willReadFrequently: true });
+  ctx.font = hm.font;
+  ctx.textBaseline = "alphabetic";
+  ctx.save();
+  ctx.scale(xScale, 1);
+  lines.forEach((l, i) => ctx.fillText(l, 0, hm.lineH * i + (hm.lineH - hm.ink) / 2 + hm.ascent));
+  ctx.restore();
+  const img = ctx.getImageData(0, 0, cols, HEIGHT), d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const v = d[i + 3] >= 128 ? 17 : 255;
+    d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  return { canvas: c, mm: cols * MM_PER_COL };
+}
+
+function selectFont(value, scroll) {
+  $("font").value = value;
+  recentFonts = [value, ...recentFonts.filter(v => v !== value)].slice(0, 6);
+  try { localStorage.setItem(RECENT_FONTS_KEY, JSON.stringify(recentFonts)); } catch {}
+  document.querySelectorAll("#fontGrid .fcard").forEach(c => {
+    c.classList.toggle("sel", c.dataset.value === value);
+    if (scroll && c.dataset.value === value) c.scrollIntoView({ block: "nearest" });
+  });
+  renderRecentFonts();
+  loadFont(); // re-renders the label once the font is ready
+}
+
+function renderRecentFonts() {
+  const list = recentFonts.filter(v => FONT_BY_VALUE.has(v));
+  $("fontRecentRow").hidden = !list.length;
+  $("fontRecent").replaceChildren(...list.map(v => {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = FONT_BY_VALUE.get(v).name;
+    styleAsFont(b, v);
+    b.classList.toggle("on", v === $("font").value);
+    b.addEventListener("click", () => selectFont(v, true));
+    return b;
+  }));
+}
+
+function toggleFavFont(value) {
+  favFonts = favFonts.includes(value) ? favFonts.filter(v => v !== value) : [...favFonts, value];
+  try { localStorage.setItem(FAV_FONTS_KEY, JSON.stringify(favFonts)); } catch {}
+  renderFontPanel();
+}
+
+function renderFontPanel() {
+  if ($("fontPanel").hidden) return;
+  [...$("fontFilters").children].forEach(b => b.classList.toggle("on", b.dataset.f === fontFilter));
+  const raw = expandDates($("text").value);
+  const lines = (raw.trim() ? raw : "Label 123").split("\n");
+  const list = FONTS.filter(f => f.installed && !f.hidden &&
+    (fontFilter === "all" || (fontFilter === "rec" ? f.rec || favFonts.includes(f.value) : f.tags.includes(fontFilter))) &&
+    (!$("fontOffline").checked || !f.web));
+  const samples = new Map(list.map(f => [f.value, fontSample(f.value, lines)]));
+  if ($("fontSort").value === "len") list.sort((a, b) => samples.get(a.value).mm - samples.get(b.value).mm);
+  else list.sort((a, b) => a.name.localeCompare(b.name));
+
+  // With a fixed label length, dim fonts whose text would need narrowing to fit.
+  const lenMm = +$("len").value || 0;
+  const room = lenMm > 0 ? lenMm - fitInfo.otherMm : Infinity;
+
+  $("fontGrid").replaceChildren(...list.map(f => {
+    const s = samples.get(f.value);
+    const card = document.createElement("button");
+    card.type = "button"; card.className = "fcard"; card.dataset.value = f.value;
+    card.classList.toggle("sel", f.value === $("font").value);
+    card.classList.toggle("dim", s.mm > room);
+    const top = document.createElement("div");
+    top.className = "fname";
+    const nm = document.createElement("span");
+    const fav = favFonts.includes(f.value);
+    const star = document.createElement("span");
+    star.className = "fstar" + (fav ? " on" : "");
+    star.textContent = fav ? "★" : "☆";
+    star.title = fav ? "Remove from favourites" : "Add to favourites (always shown in Recommended)";
+    star.setAttribute("role", "button");
+    star.addEventListener("click", e => { e.stopPropagation(); toggleFavFont(f.value); });
+    nm.append(star, " " + f.name);
+    const len = document.createElement("span");
+    len.className = "flen";
+    len.textContent = s.mm > room ? `${Math.round(s.mm)} mm, too long` : `${Math.round(s.mm)} mm`;
+    top.append(nm, len);
+    const prev = document.createElement("div");
+    prev.className = "fprev";
+    s.canvas.style.width = (s.canvas.width / X_STRETCH * 1.2) + "px";
+    prev.append(s.canvas);
+    const tags = document.createElement("div");
+    tags.className = "ftags";
+    for (const t of [...f.tags.filter(t => t !== "sans" || f.tags.length === 1), f.web ? "web" : "this computer"]) {
+      const sp = document.createElement("span");
+      sp.className = "ftag"; sp.textContent = TAG_TEXT[t] || t;
+      tags.append(sp);
+    }
+    card.append(top, prev, tags);
+    card.addEventListener("click", () => selectFont(f.value));
+    return card;
+  }));
+  const missing = FONTS.filter(f => !f.installed).length;
+  $("fontCount").textContent = `${list.length} fonts` + (missing ? ` · ${missing} not on this computer` : "");
+}
+
+let fontPanelTimer = null;
+function scheduleFontPanel() {
+  if ($("fontPanel").hidden) return;
+  clearTimeout(fontPanelTimer);
+  fontPanelTimer = setTimeout(renderFontPanel, 150);
+}
+
+for (const [k, label] of FONT_FILTERS) {
+  const b = document.createElement("button");
+  b.type = "button"; b.textContent = label; b.dataset.f = k;
+  b.addEventListener("click", () => {
+    fontFilter = k;
+    try { localStorage.setItem(FONT_FILTER_KEY, k); } catch {}
+    renderFontPanel();
+  });
+  $("fontFilters").append(b);
+}
+$("fontOffline").addEventListener("change", renderFontPanel);
+$("fontSort").addEventListener("change", renderFontPanel);
+$("fontBtn").addEventListener("click", () => {
+  const open = $("fontPanel").hidden;
+  $("fontPanel").hidden = !open;
+  $("fontBtn").setAttribute("aria-expanded", open);
+  if (!open) return;
+  renderRecentFonts();
+  renderFontPanel();
+  // Web fonts download on first use; redraw the cards once they have arrived.
+  Promise.all(FONTS.filter(f => f.web).map(f => document.fonts.load(fontSpec(30, f.value)).catch(() => {})))
+    .then(renderFontPanel);
+});
+$("fontClose").addEventListener("click", () => { $("fontPanel").hidden = true; $("fontBtn").setAttribute("aria-expanded", false); $("fontBtn").focus(); });
+// Arrow keys step through the visible fonts; the label preview follows.
+$("fontGrid").addEventListener("keydown", e => {
+  const cards = [...$("fontGrid").querySelectorAll(".fcard")];
+  const i = cards.findIndex(c => c.dataset.value === $("font").value);
+  const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+  if (step && cards.length) {
+    e.preventDefault();
+    const next = cards[Math.max(0, Math.min(cards.length - 1, (i < 0 ? 0 : i + step)))];
+    selectFont(next.dataset.value, true);
+    next.focus();
+  } else if (e.key === "Escape") {
+    $("fontClose").click();
+  }
+});
 
 // ---- Bluetooth ----
 let device = null, reqChar = null, replyChar = null, busy = false;
