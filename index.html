@@ -417,7 +417,7 @@
 
 <script>
 // Bump with every published change: major.minor.patch (new features: minor; fixes: patch).
-const VERSION = "1.2.1", VERSION_DATE = "2026-10-25";
+const VERSION = "1.2.2", VERSION_DATE = "2026-10-25";
 
 // ---- Protocol (from ysfchn/dymo-bluetooth) ----
 const SERVICE = "be3dd650-2b3d-42f1-99c1-f0f749dd0678";
@@ -1081,23 +1081,24 @@ document.querySelectorAll(".chip[data-token]").forEach(b =>
   b.addEventListener("click", () => insertAtCursor(b.dataset.token)));
 
 // ---- Symbol & emoji picker: recent row plus a tabbed grid ----
+// Emoji print as solid silhouettes, so only ones whose outline alone tells
+// what they are: full-body animals rather than faces, no box-shaped objects.
 const EMOJI = {
-  Symbols: "★ ☆ ♥ ✓ ✗ ⚠ ⚡ ☀ ❄ ☂ ☕ ♻ ✂ ⚙ ☎ ✉ ⌂ ♫ ☢ ☣ ⚑ ⚓ ✈ ♿ ➜ ← → ↑ ↓ ● ○ ■ □ ▲ ◆ ✿ ☘ ♠ ♣ ♦ ∞ ° € ✚ ✱",
-  Food: "🍎 🍐 🍊 🍋 🍌 🍉 🍇 🍓 🍒 🥕 🌽 🌶️ 🥔 🧅 🧄 🍄 🥜 🍞 🧀 🥚 🥛 🍯 🧂 🍪 🍰 🍫 🍬 🍝 🍚 🥫 ☕ 🍵 🍷 🍺 🧊",
-  Home: "🏠 🛏️ 🛁 🚿 🧻 🧼 🧽 🧺 🧹 👕 👖 🧦 👟 🧤 🧣 🎒 🧸 🎁 📦 🗑️ 🪴 🕯️ 💡 🔑",
-  Tools: "🔧 🔨 🪛 🪚 🔩 ⚙️ 🧰 📏 ✂️ 📎 🖊️ ✏️ 🔋 🔌 💻 🖥️ 🖨️ ⌨️ 🖱️ 📱 🎧 📷 💾 🔦",
-  Office: "📚 📖 📒 📁 📂 📅 📌 🏷️ ✉️ 📮 🗂️ 🗃️ 📝 📊 🧾",
-  Health: "💊 💉 🩹 🌡️ 🧴 🪥 🩺 ❤️",
-  Nature: "🌲 🌳 🌵 🌸 🌻 🍀 🍁 ☀️ 🌙 ⭐ ⛅ 🌧️ ❄️ 🔥 💧 🌊",
-  Animals: "🐱 🐶 🐭 🐰 🦊 🐻 🐼 🐨 🐯 🦁 🐮 🐷 🐸 🐵 🐔 🐧 🐦 🦆 🦉 🐟 🐠 🐢 🐍 🦋 🐝 🐞",
-  Fun: "🚗 🚲 🚀 ⚽ 🏀 🎾 🎮 🎲 🎵 🎸 🎨 🧩",
+  Symbols: "★ ☆ ♥ ✓ ✗ ☐ ☑ ☒ ⚠ ⚡ ☀ ❄ ☂ ☕ ♻ ✂ ✎ ⚙ ⚒ ⚖ ☎ ✉ ⌂ ♨ ♫ ☢ ☣ ⚑ ⚓ ✈ ⛟ ♿ ♀ ♂ ☺ ➜ ← → ↑ ↓ ① ② ③ ④ ⑤ ● ○ ■ □ ▲ ◆ ✿ ☘ ♠ ♣ ♦ ∞ ° € ✚ ✱",
+  Food: "🍎 🍐 🍌 🍇 🍓 🍒 🥕 🌽 🌶️ 🧄 🍄 🥜 🧀 🥛 🧂 🍬 🫖 🍷 🍺 🍴 🥄 🍳",
+  Home: "🏠 🛏️ 🛁 🧹 👕 👖 🧦 👟 🧸 🗑️ 🪴 🕯️ 💡 🔑 🔒 🔔 ⏰ ⌛ ☂️ 🛒 🪜 🧯",
+  Tools: "🔧 🔨 🪛 🪚 ⚙️ ✂️ 📎 📌 🏷️ 🧷 🧲 🖊️ ✏️ 🔌 🎧",
+  Health: "💊 💉 🌡️ 🧴 🪥 🩺 ❤️",
+  Nature: "🌲 🌳 🌵 🌸 🌻 🍀 🍁 🎄 ☀️ 🌙 ⭐ 🌧️ ❄️ 🔥 💧",
+  Animals: "🐈 🐕 🐁 🐇 🐿️ 🦔 🐄 🐖 🐎 🐘 🦒 🦘 🐓 🦆 🦉 🦩 🐟 🦀 🐢 🐍 🦕 🦋 🐞 🐌 🕷️",
+  Fun: "🚗 🚲 🚂 ✈️ ⛵ 🚀 🏆 🎮 🎵 🎸 🧩",
 };
 // U+FE0E asks for the plain (non-colour) form of symbols like ⚡ or ☕.
 const pickValue = (tab, ch) => tab === "Symbols" ? ch + "︎" : ch;
 
 const RECENT_KEY = "letratag.recentSymbols", TAB_KEY = "letratag.emojiTab";
 const RECENT_MAX = 12;
-let recent = ["★︎", "✓︎", "⚠︎", "❄︎", "🔥", "🍎", "📦", "💡"];
+let recent = ["★︎", "✓︎", "⚠︎", "❄︎", "🔥", "🍎", "🔑", "💡"];
 try { const r = JSON.parse(localStorage.getItem(RECENT_KEY)); if (Array.isArray(r) && r.length) recent = r; } catch {}
 
 function emoButton(value) {
