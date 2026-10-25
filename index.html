@@ -216,6 +216,7 @@
     text-transform: uppercase; letter-spacing: .06em;
   }
   footer p { margin: 0 0 8px; }
+  footer .ver { float: right; font-weight: 400; text-transform: none; letter-spacing: 0; }
   footer p:last-child { margin-bottom: 0; }
   footer a { color: var(--text); }
   /* Preview and Print stay pinned while scrolling through the settings. */
@@ -405,7 +406,7 @@
   </div>
 
   <footer class="panel">
-    <h3>Credits</h3>
+    <h3>Credits <span class="ver" id="version"></span></h3>
     <p>Printer protocol based on <a href="https://github.com/ysfchn/dymo-bluetooth" target="_blank" rel="noopener">dymo-bluetooth</a>
       by Yusuf Cihan (ysfchn), MIT License. Thank you for reverse-engineering the LetraTag!</p>
     <p>Web fonts from <a href="https://fonts.google.com" target="_blank" rel="noopener">Google Fonts</a>, under their open font licenses.</p>
@@ -415,6 +416,9 @@
 <div class="toast-wrap" aria-live="polite"><div id="toast" class="toast" hidden></div></div>
 
 <script>
+// Bump with every published change: major.minor.patch (new features: minor; fixes: patch).
+const VERSION = "1.2.0", VERSION_DATE = "2026-10-25";
+
 // ---- Protocol (from ysfchn/dymo-bluetooth) ----
 const SERVICE = "be3dd650-2b3d-42f1-99c1-f0f749dd0678";
 const PRINT_REQUEST = "be3dd651-2b3d-42f1-99c1-f0f749dd0678";
@@ -1362,7 +1366,7 @@ function log(msg) {
   logLines.push(`${p2(t.getHours())}:${p2(t.getMinutes())}:${p2(t.getSeconds())}.${String(t.getMilliseconds()).padStart(3, "0")}  ${msg}`);
   if (logLines.length > LOG_MAX) logLines.shift();
   $("log").textContent = logLines.join("\n");
-  $("sumLog").textContent = `· ${logLines.length} events`;
+  $("sumLog").textContent = `· ${logLines.length} event${logLines.length === 1 ? "" : "s"}`;
 }
 
 function setStatus(msg, kind = "") {
@@ -1727,6 +1731,8 @@ if (!navigator.bluetooth) {
   }).catch(() => {});
 }
 updateConnUi();
+$("version").textContent = `Version ${VERSION} · ${VERSION_DATE}`;
+log(`LetraTag page ${VERSION}`);
 
 </script>
 </body>
